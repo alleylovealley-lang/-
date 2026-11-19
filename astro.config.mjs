@@ -1,6 +1,7 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
+import { unified } from '@astrojs/markdown-remark';
 
 // 배포 주소. GitHub Actions에서 자동으로 채워집니다. 직접 도메인을 연결하면 SITE_URL만 바꾸면 됩니다.
 const site = process.env.SITE_URL || 'https://example.com';
@@ -26,7 +27,7 @@ export default defineConfig({
   trailingSlash: 'ignore',
   integrations: [sitemap()],
   markdown: {
-    rehypePlugins: [rehypeBaseLinks()],
+    processor: unified({ rehypePlugins: [rehypeBaseLinks()] }),
     shikiConfig: {
       themes: { light: 'github-light', dark: 'github-dark' },
     },
