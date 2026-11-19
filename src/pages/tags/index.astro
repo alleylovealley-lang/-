@@ -1,0 +1,13 @@
+---
+import Base from '../../layouts/Base.astro';
+import { url, getTagMap } from '../../lib/utils';
+const tags = await getTagMap();
+---
+<Base title="태그">
+  <header class="page-header"><h1>태그</h1></header>
+  <ul class="tags" style="margin-top: 2rem">
+    {[...tags].map(([tag, items]) => (
+      <li><a class="tag" href={url(`/tags/${encodeURIComponent(tag)}`)}>#{tag} <span>{items.length}</span></a></li>
+    ))}
+  </ul>
+</Base>

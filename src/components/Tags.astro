@@ -1,0 +1,9 @@
+---
+import { url } from '../lib/utils';
+const { tags = [] } = Astro.props as { tags?: readonly string[] };
+---
+{tags.length > 0 && (
+  <ul class="tags">
+    {tags.map((t) => <li><a class="tag" href={url(`/tags/${encodeURIComponent(t)}`)}>#{t}</a></li>)}
+  </ul>
+)}
