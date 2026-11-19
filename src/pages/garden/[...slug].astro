@@ -1,0 +1,42 @@
+---
+import { render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import Tags from '../../components/Tags.astro';
+import { url, getNotes, formatDate, isoDate, STAGES } from '../../lib/utils';
+
+export async function getStaticPaths() {
+  const notes = await getNotes();
+  return notes.map((note) => {
+    // 백링크: 이 메모를 링크하는 다른 메모들
+    const pattern = new RegExp(`garden/${note.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`);
+    const backlinks = notes.filter((n) => n.id !== note.id && pattern.test(n.body ?? ''));
+    return { params: { slug: note.id }, props: { note, backlinks } };
+  });
+}
+const { note, backlinks } = Astro.props;
+const { Content } = await render(note);
+const { title, planted, tended, stage, tags } = note.data;
+---
+<Base title={title} type="article">
+  <article>
+    <header class="page-header">
+      <p class="small"><a href={url('/garden')}>← 정원</a></p>
+      <h1>{title}</h1>
+      <div class="meta">
+        <span>{STAGES[stage].icon} {STAGES[stage].label}</span>
+        <span>심은 날 <time datetime={isoDate(planted)}>{formatDate(planted)}</time></span>
+        {tended && <span>가꾼 날 <time datetime={isoDate(tended)}>{formatDate(tended)}</time></span>}
+      </div>
+    </header>
+    <div class="prose"><Content /></div>
+    <Tags tags={tags} />
+  </article>
+  {backlinks.length > 0 && (
+    <aside class="backlinks">
+      <h2 class="section-title">이 메모를 언급한 곳</h2>
+      <ul class="list">
+        {backlinks.map((b) => <li><a href={url(`/garden/${b.id}`)}>{STAGES[b.data.stage].icon} {b.data.title}</a></li>)}
+      </ul>
+    </aside>
+  )}
+</Base>

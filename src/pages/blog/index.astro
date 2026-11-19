@@ -1,0 +1,26 @@
+---
+import Base from '../../layouts/Base.astro';
+import { url, getPosts, isoDate } from '../../lib/utils';
+
+const posts = await getPosts();
+const byYear = Map.groupBy(posts, (p) => p.data.date.getFullYear());
+---
+<Base title="글" description="생각을 정리해 쓴 글들">
+  <header class="page-header">
+    <h1>글</h1>
+    <p class="muted">총 {posts.length}편 · <a href={url('/rss.xml')}>RSS 구독</a></p>
+  </header>
+  {[...byYear].map(([year, items]) => (
+    <section>
+      <h2 class="section-title">{year}</h2>
+      <ul class="list">
+        {items.map((p) => (
+          <li>
+            <a href={url(`/blog/${p.id}`)}>{p.data.title}{p.data.draft && <span class="muted small"> (초안)</span>}</a>
+            <time datetime={isoDate(p.data.date)}>{isoDate(p.data.date).slice(5).replace('-', '.')}</time>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
+</Base>

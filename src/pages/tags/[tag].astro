@@ -1,0 +1,26 @@
+---
+import Base from '../../layouts/Base.astro';
+import { url, getTagMap, isoDate } from '../../lib/utils';
+
+export async function getStaticPaths() {
+  const tags = await getTagMap();
+  return [...tags].map(([tag, items]) => ({ params: { tag }, props: { items } }));
+}
+const { tag } = Astro.params;
+const { items } = Astro.props;
+---
+<Base title={`#${tag}`}>
+  <header class="page-header">
+    <p class="small"><a href={url('/tags')}>← 모든 태그</a></p>
+    <h1>#{tag}</h1>
+    <p class="muted">{items.length}개 항목</p>
+  </header>
+  <ul class="list" style="margin-top: 2rem">
+    {items.map((i) => (
+      <li>
+        <a href={url(i.href)}><span class="muted small">{i.kind}</span> {i.title}</a>
+        <time datetime={isoDate(i.date)}>{isoDate(i.date)}</time>
+      </li>
+    ))}
+  </ul>
+</Base>
