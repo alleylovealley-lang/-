@@ -12,8 +12,6 @@
     "@astrojs/markdown-remark": "^7.3.10",
     "@astrojs/rss": "^4.0.19",
     "@astrojs/sitemap": "^3.7.6",
-    "@fontsource/dotgothic16": "^5.3.1",
-    "@fontsource/gaegu": "^5.3.0",
     "@fontsource/gowun-dodum": "^5.3.0",
     "astro": "^7.4.13"
   }

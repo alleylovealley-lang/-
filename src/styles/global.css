@@ -1,3 +1,10 @@
+/* ✒️ 글꼴 (눈누에서 고른 무료 폰트, public/fonts/ 에 직접 포함)
+   - Neo둥근모 (Dalgona, SIL OFL) https://noonnu.cc/font_page/386
+   - 온글잎 박다현체 (온글잎·보이저엑스) https://noonnu.cc/font_page/1541
+   - 고운돋움 (류양희, SIL OFL) — @fontsource/gowun-dodum */
+@font-face { font-family: 'NeoDunggeunmo'; src: url('/fonts/NeoDunggeunmo.woff') format('woff'); font-display: swap; }
+@font-face { font-family: 'Ownglyph_ParkDaHyun'; src: url('/fonts/Ownglyph_ParkDaHyun.woff2') format('woff2'); font-display: swap; }
+
 /* 🎨 색은 여기 :root 에서 바꾸면 사이트 전체에 반영됩니다 */
 :root {
   --frame: #2f2f2f;
@@ -12,8 +19,8 @@
   --pink-deep: #e0709a;
   --pink-soft: #fdeef3;
   --font: 'Gowun Dodum', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
-  --pixel: 'DotGothic16', 'Gowun Dodum', monospace;
-  --hand: 'Gaegu', 'Gowun Dodum', cursive;
+  --pixel: 'NeoDunggeunmo', 'Gowun Dodum', monospace;
+  --hand: 'Ownglyph_ParkDaHyun', 'Gowun Dodum', cursive;
   --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   color-scheme: light;
 }
@@ -21,7 +28,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {
-  margin: 0; padding: 26px 16px; color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.7;
+  margin: 0; padding: 14px; color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.7;
   word-break: keep-all; overflow-wrap: break-word;
   background: var(--bg) radial-gradient(#fff 2px, transparent 2.5px) 0 0 / 22px 22px;
 }
@@ -33,17 +40,18 @@ img { max-width: 100%; }
 
 /* ── 프레임 ── */
 .outer {
-  max-width: 1040px; margin: 0 auto; padding: 14px; border-radius: 22px;
+  /* 화면 전체를 꽉 채우는 프레임 */
+  min-height: calc(100vh - 28px); min-height: calc(100dvh - 28px); display: flex; padding: 14px; border-radius: 22px;
   background: var(--frame) radial-gradient(circle at 8px 8px, var(--frame-dot) 3px, transparent 3.5px) 0 0 / 16px 16px;
   box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--line), 0 10px 30px rgba(0, 0, 0, 0.12);
 }
 .inner {
-  background: var(--inner); border-radius: 14px; padding: 12px; display: grid; gap: 10px;
-  grid-template-columns: 150px minmax(0, 1fr) 170px;
+  flex: 1; background: var(--inner); border-radius: 14px; padding: 12px; display: grid; gap: 10px;
+  grid-template-columns: 190px minmax(0, 1fr) 210px; grid-template-rows: auto 1fr auto;
   grid-template-areas: 'hd hd hd' 'left main right' 'foot foot foot';
   align-items: start;
 }
-.hd { grid-area: hd; display: grid; grid-template-columns: 150px 1fr; gap: 10px; }
+.hd { grid-area: hd; display: grid; grid-template-columns: 190px 1fr; gap: 10px; }
 .left { grid-area: left; } .right { grid-area: right; } .main { grid-area: main; } .foot { grid-area: foot; }
 .side, .main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 
@@ -53,7 +61,8 @@ img { max-width: 100%; }
   box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 4px #eee;
 }
 .p.tight { padding: 6px; }
-.main.panel { padding: 22px 26px; display: block; }
+.main.panel { padding: 24px 30px; display: block; align-self: stretch; }
+.main.panel > * { max-width: 920px; } /* 넓은 화면에서도 글줄이 너무 길어지지 않게 */
 .cap { font-family: var(--pixel); text-align: center; color: var(--pink-deep); font-size: 12px; margin-bottom: 8px; }
 .cap::before, .cap::after { content: ' ♥ '; color: var(--pink); font-size: 9px; }
 .center { text-align: center; }
@@ -68,16 +77,16 @@ img { max-width: 100%; }
 }
 .ph b { display: block; color: var(--pink-deep); font-weight: 400; font-size: 12px; }
 .hd-icon { text-decoration: none; }
-.hd-icon .deco { height: 150px; }
-.banner { position: relative; height: 150px; }
+.hd-icon .deco { height: 160px; }
+.banner { position: relative; height: 160px; }
 .banner-img { height: 100%; border-radius: 14px; }
 .banner .ph { place-items: center start; padding-left: 40px; text-align: left; }
 .banner-title {
-  position: absolute; right: 22px; bottom: 14px; text-decoration: none; font: 700 46px/1 var(--hand); letter-spacing: 0.06em;
+  position: absolute; right: 22px; bottom: 14px; text-decoration: none; font: 400 46px/1 var(--hand); letter-spacing: 0.06em;
   color: #fff; -webkit-text-stroke: 2px var(--pink-deep); text-shadow: 3px 3px 0 #555; white-space: nowrap;
 }
 .banner-title:hover { color: #fff; }
-.mascot { height: 130px; }
+.mascot { height: 160px; }
 .sidebanner { height: 160px; }
 .b88 { width: 88px; height: 31px; border-radius: 4px; flex-shrink: 0; }
 .b88.ph b { font-size: 10px; } .b88.ph { font-size: 0; }
@@ -94,6 +103,9 @@ img { max-width: 100%; }
 .nav a:hover, .nav a[aria-current='page'] { background: linear-gradient(#fff, var(--pink-soft)); border-color: var(--pink-deep); color: var(--ink); }
 .nav a:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 #bbb; }
 .navtitle { height: 46px; margin-bottom: 10px; }
+.nav .home { justify-content: center; gap: 6px; background: linear-gradient(#5a5a5a, #3a3a3a); border-color: #2f2f2f; color: #fff; }
+.nav .home:hover, .nav .home[aria-current='page'] { background: linear-gradient(#f3a5bf, #e0709a); border-color: var(--pink-deep); color: #fff; }
+.nav .home-sep { border: none; border-top: 2px dashed var(--line); margin: 4px 0 10px; }
 .mnav { display: none; }
 
 /* ── 달력 ── */
@@ -117,7 +129,7 @@ img { max-width: 100%; }
 
 /* ── 본문 (글/페이지) ── */
 h1, h2, h3 { line-height: 1.4; }
-h1 { font: 700 30px/1.3 var(--hand); margin: 0 0 6px; }
+h1 { font: 400 30px/1.3 var(--hand); margin: 0 0 6px; }
 h2 { font-size: 1.2rem; margin: 2.2rem 0 0.6rem; }
 h3 { font-size: 1.05rem; margin: 1.8rem 0 0.4rem; }
 .muted { color: var(--mute); } .small { font-size: 12px; }
@@ -160,6 +172,8 @@ pre { padding: 0.9rem 1rem; border-radius: 8px; overflow-x: auto; border: 1px so
   .banner-title { font-size: 30px; right: 14px; bottom: 10px; }
   .banner .ph { padding-left: 16px; }
   .right .nav { display: none; }
+  .outer { min-height: 0; }
+  .inner { grid-template-rows: none; }
   .mnav { grid-area: mnav; display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 6px; }
   .mnav a { flex-shrink: 0; font: 12px var(--pixel); padding: 4px 12px; border: 2px solid #555; border-radius: 4px; background: linear-gradient(#fff, #ececec); text-decoration: none; box-shadow: 2px 2px 0 #bbb; }
   .mnav a[aria-current='page'] { border-color: var(--pink-deep); background: linear-gradient(#fff, var(--pink-soft)); }

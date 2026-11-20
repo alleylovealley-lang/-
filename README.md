@@ -12,7 +12,7 @@
 3. 다 꾸몄으면 `showPlaceholders: false`로 바꾸면 빈 칸이 숨겨져요
 
 블로그 글 썸네일은 글 맨 위에 `cover: /images/posts/사진.jpg`를 적으면 됩니다.
-색은 `src/styles/global.css` 맨 위 `:root`에서 바꿀 수 있어요.
+색과 글꼴은 `src/styles/global.css` 맨 위에서 바꿀 수 있어요. 글꼴 파일은 `public/fonts/`에 들어 있어요 (눈누: Neo둥근모, 온글잎 박다현체 / 본문: 고운돋움).
 
 ## 가장 먼저 할 일
 
