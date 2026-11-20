@@ -29,7 +29,7 @@
 | RECORD › 일기 | `src/content/diary/` | `.md` — `category: daily` 또는 `note` |
 | RECORD › 사진 | `src/content/photos/` + 이미지는 `public/images/photos/` | `.yaml` |
 | RECORD › 컬렉션 | `src/content/collection/` | `.md` — `category: moment / morning` |
-| LIFE › 일정·퀘스트 | `src/content/schedule/` | `.yaml` — `type: personal`(일정) 또는 `reminder`(할 일·퀘스트) |
+| LIFE › 일정 / GAME › 퀘스트 | `src/content/schedule/` | `.yaml` — `type: personal`(일정) 또는 `reminder`(할 일·퀘스트) |
 | REVIEW › 독서·장소·문장 | `src/content/archive/` | `.md` — `kind: book / place / quote / thought` |
 | FINANCE › 구독 관리 | `src/content/subscriptions/` | `.yaml` |
 | WORK › 포트폴리오 | `src/content/projects/` | `.md` |

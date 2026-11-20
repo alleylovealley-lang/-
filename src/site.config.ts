@@ -48,7 +48,6 @@ export const SITE = {
       key: 'life', label: 'LIFE', ko: '생활 관리', desc: '일정과 할 일 관리',
       children: [
         { label: 'SCHEDULE', ko: '일정', href: '/schedule', desc: '오늘의 일정, 월간 캘린더, D-Day' },
-        { label: 'QUEST', ko: '퀘스트', href: '/schedule/quest', desc: '할 일을 완료하고 포인트 모으기' },
       ],
     },
     {
@@ -77,6 +76,12 @@ export const SITE = {
       children: [
         { label: 'FILES', ko: '자료', href: '/archive/files', desc: '보관하고 싶은 자료 (준비 중)' },
         { label: 'BACKUP', ko: '백업', href: '/backup', desc: '사이트와 기록의 저장 기록' },
+      ],
+    },
+    {
+      key: 'game', label: 'GAME', ko: '게임', desc: '할 일을 퀘스트로, 포인트로 레벨업',
+      children: [
+        { label: 'QUEST', ko: '퀘스트', href: '/game/quest', desc: '할 일을 완료하고 포인트 모으기' },
       ],
     },
     {
