@@ -3,7 +3,6 @@ import Base from '../../layouts/Base.astro';
 import PageHead from '../../components/PageHead.astro';
 import Box from '../../components/Box.astro';
 import { getSubscriptions } from '../../lib/utils';
-import { SCHEDULE_TABS } from './_tabs';
 const subs = (await getSubscriptions()).map((s) => s.data);
 const active = subs.filter((s) => s.active);
 const monthly = active.reduce((sum, s) => sum + (s.cycle === 'yearly' ? s.price / 12 : s.price), 0);
@@ -11,7 +10,7 @@ const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`;
 ---
 <Base title="SUBSCRIPTION · 구독" description="정기구독 관리">
   <meta slot="head" name="robots" content="noindex" />
-  <PageHead en="SUBSCRIPTION" ko="구독 관리" desc="정기구독 목록과 결제일을 한눈에." tabs={SCHEDULE_TABS} current="/schedule/subscription" />
+  <PageHead en="SUBSCRIPTION" ko="구독 관리" desc="정기구독 목록과 결제일을 한눈에." />
   <div class="sum">
     <div><small>월 합계</small><b>{won(monthly)}</b></div>
     <div><small>연 환산</small><b>{won(monthly * 12)}</b></div>
@@ -33,7 +32,7 @@ const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`;
       </tbody>
     </table>
   </Box>
-  <p class="muted small">결제일은 SCHEDULE 캘린더에도 표시할 수 있어요 (다음 단계).</p>
+  <p class="muted small">결제일은 일정 캘린더에도 표시할 수 있어요 (다음 단계).</p>
 </Base>
 <script>
   type Sub = { cycle: string; billingDay: number; billingMonth?: number };

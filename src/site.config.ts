@@ -6,6 +6,8 @@
 //   비워두면('') 회색 줄무늬 자리표시가 보입니다. (gif 움짤도 OK)
 
 export type Deco = { src: string; alt?: string; href?: string };
+export type NavItem = { label: string; ko: string; href: string; desc?: string };
+export type NavGroup = { key: string; label: string; ko: string; desc?: string; children: NavItem[] };
 
 export const SITE = {
   name: '홍길동',
@@ -32,24 +34,59 @@ export const SITE = {
   /** 좌측바 '오늘 기분' */
   mood: '☁ 몽글몽글',
 
-  /** 메뉴 — children은 작게 들여쓰기로 표시돼요 */
+  /** 메뉴 — 오른쪽 바에는 대주제만 보이고, 대주제를 누르면 하위 메뉴 카드 페이지가 열려요 */
   nav: [
-    { label: 'HOME', ko: '홈', href: '/' },
-    { label: 'DIARY', ko: '일기', href: '/diary' },
     {
-      label: 'SCHEDULE', ko: '일정', href: '/schedule',
+      key: 'record', label: 'RECORD', ko: '기록', desc: '하루하루의 기록',
       children: [
-        { label: 'QUEST', ko: '퀘스트', href: '/schedule/quest' },
-        { label: 'SUBSCRIPTION', ko: '구독', href: '/schedule/subscription' },
+        { label: 'DIARY', ko: '일기', href: '/diary', desc: '일상과 생각, 감정을 기록하는 공간' },
+        { label: 'PHOTO', ko: '사진', href: '/photo', desc: '사진과 일상의 순간을 보관하는 공간' },
+        { label: 'COLLECTION', ko: '컬렉션', href: '/collection', desc: '좋아하는 순간과 문장을 모아두는 공간' },
       ],
     },
-    { label: 'PHOTO', ko: '사진', href: '/photo' },
-    { label: 'ARCHIVE', ko: '아카이브', href: '/archive' },
-    { label: 'COLLECTION', ko: '컬렉션', href: '/collection' },
-    { label: 'PORTFOLIO', ko: '작업', href: '/portfolio' },
-    { label: 'ABOUT', ko: '소개', href: '/about' },
-    { label: 'BACKUP', ko: '백업', href: '/backup' },
-  ] as { label: string; ko: string; href: string; children?: { label: string; ko: string; href: string }[] }[],
+    {
+      key: 'life', label: 'LIFE', ko: '생활 관리', desc: '일정과 할 일 관리',
+      children: [
+        { label: 'SCHEDULE', ko: '일정', href: '/schedule', desc: '오늘의 일정, 월간 캘린더, D-Day' },
+        { label: 'QUEST', ko: '퀘스트', href: '/schedule/quest', desc: '할 일을 완료하고 포인트 모으기' },
+      ],
+    },
+    {
+      key: 'review', label: 'REVIEW', ko: '취향 기록', desc: '읽고, 가보고, 마음에 남은 것들',
+      children: [
+        { label: 'READING', ko: '독서', href: '/review/reading', desc: '요즘 읽는 책, 다 읽은 책' },
+        { label: 'PLACES', ko: '장소', href: '/review/places', desc: '다시 가고 싶은 곳' },
+        { label: 'NOTES', ko: '문장·메모', href: '/review/notes', desc: '마음에 남은 문장, 틈틈이 적은 생각' },
+      ],
+    },
+    {
+      key: 'finance', label: 'FINANCE', ko: '가계부', desc: '돈의 흐름 관리',
+      children: [
+        { label: 'LEDGER', ko: '가계부', href: '/finance/ledger', desc: '수입·지출 기록 (준비 중)' },
+        { label: 'SUBSCRIPTION', ko: '구독 관리', href: '/finance/subscription', desc: '정기구독 목록과 결제일' },
+      ],
+    },
+    {
+      key: 'work', label: 'WORK', ko: '작업 관리', desc: '만든 것과 하고 있는 것',
+      children: [
+        { label: 'PORTFOLIO', ko: '작업', href: '/portfolio', desc: '만들고, 참여하고, 배운 것들' },
+      ],
+    },
+    {
+      key: 'archive', label: 'ARCHIVE', ko: '자료 보관', desc: '오래 보관할 자료와 백업',
+      children: [
+        { label: 'FILES', ko: '자료', href: '/archive/files', desc: '보관하고 싶은 자료 (준비 중)' },
+        { label: 'BACKUP', ko: '백업', href: '/backup', desc: '사이트와 기록의 저장 기록' },
+      ],
+    },
+    {
+      key: 'etc', label: 'ETC', ko: '기타', desc: '그 밖의 것들',
+      children: [
+        { label: 'ABOUT', ko: '소개', href: '/about', desc: '나에 대한 이야기와 링크' },
+        { label: 'TAGS', ko: '태그', href: '/tags', desc: '태그별로 모아보기' },
+      ],
+    },
+  ] as NavGroup[],
 
   /** ABOUT 페이지 아래 링크 모음 */
   links: [

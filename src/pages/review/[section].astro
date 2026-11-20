@@ -1,7 +1,16 @@
 ---
 import Base from '../../layouts/Base.astro';
+
+export function getStaticPaths() {
+  return [
+    { params: { section: 'reading' }, props: { en: 'READING', ko: '독서', desc: '요즘 읽는 책, 다 읽은 책, 읽고 싶은 책.' } },
+    { params: { section: 'places' }, props: { en: 'PLACES', ko: '장소', desc: '다시 가고 싶은 곳.' } },
+    { params: { section: 'notes' }, props: { en: 'NOTES', ko: '문장·메모', desc: '마음에 남은 문장과 틈틈이 적어둔 생각.' } },
+  ];
+}
+const { section } = Astro.params;
+const { en, ko, desc } = Astro.props;
 import PageHead from '../../components/PageHead.astro';
-import Box from '../../components/Box.astro';
 import { render } from 'astro:content';
 import { url, getArchive, isoDate } from '../../lib/utils';
 
@@ -17,12 +26,11 @@ const quotes = pick('quote').sort((a, b) => +(('date' in b.e.data && b.e.data.da
 const thoughts = pick('thought').sort((a, b) => +(b.e.data as any).date - +(a.e.data as any).date);
 const stars = (n = 0) => '★'.repeat(Math.floor(n)) + (n % 1 ? '☆' : '');
 ---
-<Base title="ARCHIVE · 아카이브" description="주제별로 오래 보관하고 싶은 기록">
-  <PageHead en="ARCHIVE" ko="아카이브" desc="주제별로 오래 보관하고 싶은 기록을 모으는 공간."
-    tabs={[{ label: 'READING · 독서', href: '#reading' }, { label: 'PLACES · 장소', href: '#places' }, { label: 'NOTES · 문장·메모', href: '#notes' }]} />
+<Base title={`${en} · ${ko}`} description={desc}>
+  <PageHead en={en} ko={ko} desc={desc} />
 
-  <Box title="READING" sub="독서" id="reading">
-    <h3 class="sub">요즘 읽는 책</h3>
+  {section === 'reading' && <>
+    <h3 class="sub first">요즘 읽는 책</h3>
     <div class="books">{reading.map(({ e, Content }) => e.data.kind === 'book' && (
       <div class="book now"><div class="spine">{e.data.title}</div><div><b>{e.data.title}</b><small>{e.data.author}{e.data.started && ` · ${isoDate(e.data.started)}~`}</small><div class="note"><Content /></div></div></div>
     ))}</div>
@@ -32,25 +40,26 @@ const stars = (n = 0) => '★'.repeat(Math.floor(n)) + (n % 1 ? '☆' : '');
     ))}</ul>
     <h3 class="sub">읽고 싶은 책</h3>
     <ul class="list">{want.map(({ e }) => e.data.kind === 'book' && <li><span>☐ {e.data.title} <small class="muted">{e.data.author}</small></span></li>)}</ul>
-  </Box>
+  </>}
 
-  <Box title="PLACES" sub="다시 가고 싶은 곳" id="places">
+  {section === 'places' && <>
     <div class="places">{places.map(({ e, Content }) => e.data.kind === 'place' && (
       <div class="place"><b>📍 {e.data.title}</b><small>{e.data.location}{e.data.visited && ` · ${isoDate(e.data.visited)}`}{e.data.revisit && ' · ♥ 다시 가고 싶어'}</small><div class="note"><Content /></div></div>
     ))}</div>
-  </Box>
+  </>}
 
-  <Box title="NOTES" sub="문장·메모" id="notes">
-    <h3 class="sub">마음에 남은 문장 <small class="muted">★ 표시한 문장은 COLLECTION에도 모여요</small></h3>
+  {section === 'notes' && <>
+    <h3 class="sub first">마음에 남은 문장 <small class="muted">★ 표시한 문장은 COLLECTION에도 모여요</small></h3>
     <div class="quotes">{quotes.map(({ e, Content }) => e.data.kind === 'quote' && (
       <blockquote class:list={{ star: e.data.starred }}><Content />{e.data.source && <cite>— {e.data.source}</cite>}{e.data.starred && <i>★</i>}</blockquote>
     ))}</div>
     <h3 class="sub">틈틈이 적어둔 생각</h3>
     <ul class="list thoughts">{thoughts.map(({ e, Content }) => e.data.kind === 'thought' && <li><span><Content /></span><time>{isoDate(e.data.date)}</time></li>)}</ul>
-  </Box>
+  </>}
 </Base>
 <style>
   .sub { font: 700 16px var(--hand); margin: 14px 0 6px; }
+  .sub.first { margin-top: 0; }
   .sub small { font: 11px var(--font); }
   .books { display: flex; flex-direction: column; gap: 8px; }
   .book { display: flex; gap: 12px; align-items: stretch; border: 1.5px solid var(--line); border-radius: 8px; padding: 8px; background: #fff; }
