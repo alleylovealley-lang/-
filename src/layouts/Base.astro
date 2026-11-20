@@ -1,7 +1,5 @@
 ---
 import '@fontsource/gowun-dodum';
-import '@fontsource/dotgothic16';
-import '@fontsource/gaegu/700.css';
 import '../styles/global.css';
 import Deco from '../components/Deco.astro';
 import Calendar from '../components/Calendar.astro';
@@ -53,6 +51,7 @@ const year = new Date().getFullYear();
         </header>
 
         <nav class="mnav" aria-label="메뉴">
+          <a href={url('/')} aria-current={path === '/' ? 'page' : undefined}>🏠</a>
           {SITE.nav.map((g) => <a href={url(groupHref(g))} aria-current={activeGroup === g.key ? 'page' : undefined}>{g.label}</a>)}
         </nav>
 
@@ -89,6 +88,8 @@ const year = new Date().getFullYear();
         <aside class="side right">
           <nav class="p nav" aria-label="메뉴">
             <Deco item={I.navTitle} label="NAVIGATION" class="navtitle" />
+            <a class="home" href={url('/')} aria-current={path === '/' ? 'page' : undefined}><span aria-hidden="true">🏠</span> HOME · 홈</a>
+            <hr class="home-sep" />
             {SITE.nav.map((g) => (
               <a href={url(groupHref(g))} aria-current={activeGroup === g.key ? 'page' : undefined}><span>{g.label}<small>{g.ko}</small></span><span aria-hidden="true">🎀</span></a>
             ))}

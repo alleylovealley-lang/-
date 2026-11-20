@@ -13,7 +13,7 @@ export const SITE = {
   name: '홍길동',
   title: '홍길동의 작은 방',
   /** 헤더 배너 위에 크게 올라가는 제목 (비우면 표시 안 함) */
-  headerTitle: "HONG'S ROOM",
+  headerTitle: '',
   description: '만들고, 기록하고, 좋아하는 걸 모아두는 평생의 작은 방.',
   lang: 'ko',
   locale: 'ko-KR',
