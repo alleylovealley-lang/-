@@ -19,18 +19,6 @@ export const SITE = {
   locale: 'ko-KR',
   startYear: 2026,
 
-  /** 홈 환영 박스 */
-  welcome: {
-    title: 'welcome to my room ♡',
-    /** 나를 소개하는 키워드 태그 */
-    keywords: ['INFP', '♥ cutie', '기록러', '☁ 몽글'],
-    text: [
-      '🐰 안녕! 홍길동의 작은 홈페이지에 온 걸 환영해요.',
-      '일기, 일정, 사진, 좋아하는 것들을 모아두는 곳이에요.',
-      '천천히 구경하고 가세요 ♡',
-    ],
-  },
-
   /** 좌측바 프로필 카드 — 사진 + 간단한 내 정보 (항목은 자유롭게 추가·삭제) */
   profile: {
     photo: { src: '', alt: '프로필 사진' } as Deco, // 정사각형 추천 (gif 가능)
@@ -123,23 +111,11 @@ export const SITE = {
     { label: 'Email', href: 'mailto:hello@example.com', note: '연락' },
   ],
 
-  /** 업데이트 기록 — 새 글은 자동으로 추가되고, 여기 적은 소식도 함께 표시됩니다 */
-  updates: [
-    { date: '2026-11-20', text: '홈페이지 리뉴얼!' },
-  ],
-
   /** 꾸미기 이미지 */
   images: {
     banner: { src: '', alt: '헤더 배너' } as Deco, // 헤더 배너 (가로로 긴 이미지, 1400×160 정도)
-    sideBanner: { src: '', alt: '세로 배너' } as Deco, // 좌측바 세로로 긴 배너 (190×560 정도, 컨셉 이미지)
-    navTitle: { src: '', alt: 'navigation' } as Deco, // 메뉴 위 제목 이미지 (150×46)
-    photo: { src: '', alt: '포토' } as Deco, // 홈 포토 박스
-    /** 홈 꾸미기 띠: 88×31 버튼 */
-    buttons: [{ src: '' }, { src: '' }, { src: '' }, { src: '' }, { src: '' }, { src: '' }] as Deco[],
-    /** 홈 꾸미기 띠: 스탬프 (72×56 정도) */
-    stamps: [{ src: '' }, { src: '' }, { src: '' }, { src: '' }, { src: '' }, { src: '' }, { src: '' }] as Deco[],
-    /** 홈 꾸미기 띠: 긴 블링키 (150×31 정도) */
-    blinkies: [{ src: '' }, { src: '' }, { src: '' }, { src: '' }] as Deco[],
+    sideBanner: { src: '', alt: '세로 배너' } as Deco, // 우측바 세로로 긴 배너 (210×560 정도, 컨셉 이미지)
+    navTitle: { src: '', alt: 'navigation' } as Deco, // 좌측 메뉴 위 제목 이미지 (190×46 정도)
   },
 
   /** 이미지가 비어 있을 때 자리표시를 보여줄지 (꾸미기 다 끝나면 false 추천) */
