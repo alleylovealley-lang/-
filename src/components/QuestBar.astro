@@ -1,0 +1,17 @@
+---
+import { questStats, POINTS_PER_LEVEL } from '../lib/utils';
+const q = await questStats();
+---
+<div class="qb">
+  <div class="lv"><b>Lv.{q.level}</b><span>{q.points} pt</span></div>
+  <div class="bar" role="progressbar" aria-valuenow={q.progress} aria-valuemax={POINTS_PER_LEVEL}><i style={`width:${q.progress}%`}></i></div>
+  <div class="sub">다음 레벨까지 {POINTS_PER_LEVEL - q.progress}pt · 완료 {q.done}/{q.total}</div>
+</div>
+<style>
+  .qb { font-size: 11px; }
+  .lv { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--pixel); }
+  .lv b { font-weight: 400; font-size: 15px; color: var(--pink-deep); }
+  .bar { height: 10px; border: 1.5px solid #555; border-radius: 3px; background: #fff; margin: 4px 0; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: repeating-linear-gradient(90deg, var(--pink) 0 6px, var(--pink-deep) 6px 8px); }
+  .sub { color: var(--mute); }
+</style>

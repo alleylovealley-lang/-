@@ -1,0 +1,11 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import ProjectCards from '../../components/ProjectCards.astro';
+import { getProjects } from '../../lib/utils';
+const projects = await getProjects();
+---
+<Base title="PORTFOLIO · 작업" description="만든 것들의 기록">
+  <PageHead en="PORTFOLIO" ko="작업" desc="만들고, 참여하고, 배운 것들." />
+  <div><ProjectCards projects={projects} /></div>
+</Base>

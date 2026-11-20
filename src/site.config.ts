@@ -24,7 +24,7 @@ export const SITE = {
     keywords: ['INFP', '♥ cutie', '기록러', '☁ 몽글'],
     text: [
       '🐰 안녕! 홍길동의 작은 홈페이지에 온 걸 환영해요.',
-      '좋아하는 것, 만든 것, 일상 기록을 모아두는 곳이에요.',
+      '일기, 일정, 사진, 좋아하는 것들을 모아두는 곳이에요.',
       '천천히 구경하고 가세요 ♡',
     ],
   },
@@ -32,13 +32,29 @@ export const SITE = {
   /** 좌측바 '오늘 기분' */
   mood: '☁ 몽글몽글',
 
-  /** 메뉴 */
+  /** 메뉴 — children은 작게 들여쓰기로 표시돼요 */
   nav: [
-    { label: 'home', href: '/' },
-    { label: 'diary', href: '/blog' },
-    { label: 'works', href: '/projects' },
-    { label: 'garden', href: '/garden' },
-    { label: 'about', href: '/about' },
+    { label: 'HOME', ko: '홈', href: '/' },
+    { label: 'DIARY', ko: '일기', href: '/diary' },
+    {
+      label: 'SCHEDULE', ko: '일정', href: '/schedule',
+      children: [
+        { label: 'QUEST', ko: '퀘스트', href: '/schedule/quest' },
+        { label: 'SUBSCRIPTION', ko: '구독', href: '/schedule/subscription' },
+      ],
+    },
+    { label: 'PHOTO', ko: '사진', href: '/photo' },
+    { label: 'ARCHIVE', ko: '아카이브', href: '/archive' },
+    { label: 'COLLECTION', ko: '컬렉션', href: '/collection' },
+    { label: 'PORTFOLIO', ko: '작업', href: '/portfolio' },
+    { label: 'ABOUT', ko: '소개', href: '/about' },
+    { label: 'BACKUP', ko: '백업', href: '/backup' },
+  ] as { label: string; ko: string; href: string; children?: { label: string; ko: string; href: string }[] }[],
+
+  /** ABOUT 페이지 아래 링크 모음 */
+  links: [
+    { label: 'GitHub', href: 'https://github.com/', note: '코드' },
+    { label: 'Email', href: 'mailto:hello@example.com', note: '연락' },
   ],
 
   /** 업데이트 기록 — 새 글은 자동으로 추가되고, 여기 적은 소식도 함께 표시됩니다 */

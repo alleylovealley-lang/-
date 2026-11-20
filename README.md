@@ -20,63 +20,45 @@
 2. `src/pages/about.md` — 소개 페이지 내용 작성
 3. 예시 콘텐츠(`sample-project.md`, `draft-example.md`, `reading-list.md` 등)는 지우거나 고쳐 쓰기
 
-## 글 쓰기
+## 기록 쓰기
 
-| 종류 | 폴더 | 주소 |
+> 다음 단계에서 사이트 안에서 바로 쓰는 기능이 추가될 예정이에요. 그 전까지는 아래 폴더에 파일을 만들면 됩니다.
+
+| 메뉴 | 폴더 | 형식 |
 | --- | --- | --- |
-| 블로그 글 | `src/content/posts/` | `/blog/파일이름` |
-| 포트폴리오 | `src/content/projects/` | `/projects/파일이름` |
-| 정원 메모 | `src/content/notes/` | `/garden/파일이름` |
+| DIARY · 일기 | `src/content/diary/` | `.md` — `category: daily` 또는 `note` |
+| SCHEDULE · 일정 / 퀘스트 | `src/content/schedule/` | `.yaml` — `type: personal`(일정) 또는 `reminder`(할 일·퀘스트) |
+| 구독 관리 | `src/content/subscriptions/` | `.yaml` |
+| PHOTO · 사진 | `src/content/photos/` + 이미지는 `public/images/photos/` | `.yaml` |
+| ARCHIVE · 아카이브 | `src/content/archive/` | `.md` — `kind: book / place / quote / thought` |
+| COLLECTION · 컬렉션 | `src/content/collection/` | `.md` — `category: moment / morning` |
+| PORTFOLIO · 작업 | `src/content/projects/` | `.md` |
+| ABOUT · 소개 | `src/pages/about.md` | |
 
-파일 이름이 곧 주소가 됩니다. 영문 소문자와 `-`를 권장합니다 (예: `my-first-post.md`).
+각 폴더의 예시 파일을 복사해서 고쳐 쓰면 가장 쉬워요. 필드 설명은 `src/content.config.ts`에 있어요.
 
-### 블로그 글
+### 예시: 일정 (`src/content/schedule/dentist.yaml`)
+
+```yaml
+title: 치과 정기검진
+date: 2026-11-26
+time: "11:30"
+type: personal   # personal(일정) / reminder(할 일)
+dday: false      # true면 D-Day 카운트
+done: false      # 할 일 완료 여부 (완료하면 퀘스트 포인트 획득)
+points: 10
+```
+
+### 예시: 문장 (`src/content/archive/quote-1.md`)
 
 ```md
 ---
-title: 글 제목
-description: 한 줄 요약 (선택)
-date: 2026-11-20
-updated: 2026-12-01   # 선택
-tags: [일상, 개발]
-draft: true           # 선택: true면 실제 사이트에 안 올라감
+kind: quote
+source: 느리게 걷는 법
+starred: true   # ★ COLLECTION에도 표시
 ---
-
-본문
+빨리 가는 것보다 오래 보는 것이 더 많은 것을 남긴다.
 ```
-
-### 포트폴리오
-
-```md
----
-title: 프로젝트 이름
-summary: 한두 문장 설명
-date: 2026-01-01
-role: 디자인 · 개발      # 선택
-link: https://...        # 선택
-repo: https://github.com/...  # 선택
-tags: [웹]
-featured: true           # 선택: 맨 앞에 표시
----
-```
-
-### 정원 메모
-
-```md
----
-title: 메모 제목
-planted: 2026-11-19   # 처음 쓴 날
-tended: 2026-12-01    # 마지막으로 다듬은 날 (선택)
-stage: seedling       # seedling 🌱 / budding 🌿 / evergreen 🌳
-tags: [생각]
----
-```
-
-메모 안에서 `[다른 메모](/garden/다른-메모)` 처럼 링크하면, 링크된 메모 아래에 **"이 메모를 언급한 곳"**이 자동으로 생깁니다.
-
-### 이미지
-
-`public/images/`에 파일을 넣고 `![설명](/images/사진.jpg)`로 씁니다.
 
 ## 내 컴퓨터에서 보기
 
@@ -96,8 +78,8 @@ npm run dev   # http://localhost:4321 에서 실시간 미리보기
 
 ```
 src/
-  site.config.ts     ← 사이트 설정
-  content/           ← 모든 글 (여기만 건드리면 됨)
+  site.config.ts     ← 사이트 설정 (이름, 메뉴, 꾸미기 이미지)
+  content/           ← 모든 기록 (여기만 건드리면 됨)
   pages/             ← 페이지 구성
   components/ layouts/ styles/  ← 디자인
 public/              ← 이미지, 파비콘 등 그대로 복사되는 파일

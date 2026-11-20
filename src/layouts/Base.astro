@@ -5,8 +5,10 @@ import '@fontsource/gaegu/700.css';
 import '../styles/global.css';
 import Deco from '../components/Deco.astro';
 import Calendar from '../components/Calendar.astro';
+import TodayWidget from '../components/TodayWidget.astro';
+import QuestBar from '../components/QuestBar.astro';
 import { SITE } from '../site.config';
-import { url, getNotes, STAGES } from '../lib/utils';
+import { url, getBooks } from '../lib/utils';
 
 interface Props { title?: string; description?: string; type?: 'website' | 'article'; bare?: boolean; }
 const { title, description = SITE.description, type = 'website', bare = false } = Astro.props;
@@ -15,8 +17,9 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 const I = SITE.images;
 
 const path = Astro.url.pathname.replace(import.meta.env.BASE_URL.replace(/\/$/, ''), '') || '/';
-const active = (href: string) => (href === '/' ? path === '/' : path === href || path.startsWith(href + '/'));
-const notes = (await getNotes()).slice(0, 4);
+const path0 = path.length > 1 ? path.replace(/\/$/, '') : path;
+const active = (href: string) => (href === '/' ? path0 === '/' : path0 === href || path0.startsWith(href + '/'));
+const reading = (await getBooks()).filter((b) => b.data.status === 'reading').slice(0, 2);
 const year = new Date().getFullYear();
 ---
 <!doctype html>
@@ -36,6 +39,7 @@ const year = new Date().getFullYear();
     <meta property="og:url" content={canonical} />
     <meta property="og:site_name" content={SITE.title} />
     <meta name="theme-color" content="#2f2f2f" />
+    <slot name="head" />
   </head>
   <body>
     <div class="outer">
@@ -49,7 +53,7 @@ const year = new Date().getFullYear();
         </header>
 
         <nav class="mnav" aria-label="메뉴">
-          {SITE.nav.map((n) => <a href={url(n.href)} aria-current={active(n.href) ? 'page' : undefined}>{n.label}</a>)}
+          {SITE.nav.flatMap((n) => [n, ...(n.children ?? [])]).map((n) => <a href={url(n.href)} aria-current={active(n.href) && !SITE.nav.some((x) => x.href !== n.href && x.href.startsWith(n.href + '/') && active(x.href)) && !(n.href === '/schedule' && path0 !== '/schedule') ? 'page' : undefined}>{n.ko}</a>)}
         </nav>
 
         <aside class="side left">
@@ -61,6 +65,12 @@ const year = new Date().getFullYear();
             <div class="cap">mood</div>
             <div class="center">{SITE.mood}</div>
           </div>
+          {reading.length > 0 && (
+            <div class="p">
+              <div class="cap">reading</div>
+              {reading.map((b) => <a class="reading" href={url('/archive#reading')}><span class="spine" aria-hidden="true"></span><span><b>{b.data.title}</b>{b.data.author && <small>{b.data.author}</small>}</span></a>)}
+            </div>
+          )}
           {(I.sideBanner.src || SITE.showPlaceholders) && (
             <div class="p tight"><Deco item={I.sideBanner} label="세로 배너" hint="사진·스티커" class="sidebanner" /></div>
           )}
@@ -80,21 +90,26 @@ const year = new Date().getFullYear();
           <nav class="p nav" aria-label="메뉴">
             <Deco item={I.navTitle} label="NAVIGATION" class="navtitle" />
             {SITE.nav.map((n) => (
-              <a href={url(n.href)} aria-current={active(n.href) ? 'page' : undefined}>{n.label} <span aria-hidden="true">🎀</span></a>
+              <>
+                <a href={url(n.href)} aria-current={active(n.href) && !(n.children?.some((c) => active(c.href))) ? 'page' : undefined}><span>{n.label}<small>{n.ko}</small></span><span aria-hidden="true">🎀</span></a>
+                {n.children && (
+                  <div class="sub">{n.children.map((c) => <a href={url(c.href)} aria-current={active(c.href) ? 'page' : undefined}>└ {c.label}<small>{c.ko}</small></a>)}</div>
+                )}
+              </>
             ))}
           </nav>
           <div class="p">
             <div class="cap">calendar</div>
             <Calendar />
           </div>
-          {notes.length > 0 && (
-            <div class="p">
-              <div class="cap">garden</div>
-              <ul class="mini">
-                {notes.map((n) => <li><a href={url(`/garden/${n.id}`)}>{STAGES[n.data.stage].icon} {n.data.title}</a></li>)}
-              </ul>
-            </div>
-          )}
+          <div class="p">
+            <div class="cap">today</div>
+            <TodayWidget />
+          </div>
+          <a class="p questlink" href={url('/schedule/quest')}>
+            <div class="cap">quest</div>
+            <QuestBar />
+          </a>
           {(I.myButton.src || SITE.showPlaceholders) && (
             <div class="p">
               <div class="cap">link me!</div>
@@ -107,7 +122,7 @@ const year = new Date().getFullYear();
         </aside>
 
         <footer class="p foot">
-          <a href={url('/')}>home</a> | <a href={url('/about')}>about</a> | <a href={url('/tags')}>tags</a> | <a href={url('/rss.xml')}>rss</a>
+          <a href={url('/')}>home</a> | <a href={url('/about')}>about</a> | <a href={url('/tags')}>tags</a> | <a href={url('/backup')}>backup</a> | <a href={url('/rss.xml')}>rss</a>
           <div>{SITE.name} © {SITE.startYear < year ? `${SITE.startYear}–${year}` : year} – ∞</div>
         </footer>
       </div>

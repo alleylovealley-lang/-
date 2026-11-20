@@ -1,8 +1,16 @@
 ---
 import Base from './Base.astro';
+import PageHead from '../components/PageHead.astro';
+import Box from '../components/Box.astro';
+import { SITE } from '../site.config';
 const { frontmatter } = Astro.props;
 ---
 <Base title={frontmatter.title} description={frontmatter.description}>
-  <header class="page-header"><h1>{frontmatter.title}</h1></header>
+  {frontmatter.en ? <PageHead en={frontmatter.en} ko={frontmatter.ko} /> : <h1>{frontmatter.title}</h1>}
   <div class="prose"><slot /></div>
+  {SITE.links.length > 0 && (
+    <Box title="LINKS" sub="링크 모음">
+      <ul class="list">{SITE.links.map((l) => <li><a href={l.href} rel="me noopener">♥ {l.label}</a><span class="meta">{l.note}</span></li>)}</ul>
+    </Box>
+  )}
 </Base>

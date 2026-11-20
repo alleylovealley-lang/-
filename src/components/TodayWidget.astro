@@ -1,0 +1,44 @@
+---
+// 오늘의 일정 + 다가오는 D-Day (방문한 날짜 기준으로 브라우저에서 계산)
+import { scheduleJson, url } from '../lib/utils';
+interface Props { limit?: number }
+const { limit = 3 } = Astro.props;
+const events = await scheduleJson();
+---
+<div class="today-widget" data-events={JSON.stringify(events)} data-limit={limit}>
+  <div class="tw-today"></div>
+  <div class="tw-dday"></div>
+  <a class="tw-more" href={url('/schedule')}>일정 더보기 ›</a>
+</div>
+<script>
+  type Ev = { date: string; title: string; time?: string; type: string; dday: boolean; done: boolean };
+  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const now = new Date();
+  const todayKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const diff = (d: string) => Math.round((Date.parse(d) - Date.parse(todayKey)) / 86400000);
+  for (const el of document.querySelectorAll<HTMLElement>('.today-widget')) {
+    const evs: Ev[] = JSON.parse(el.dataset.events || '[]');
+    const limit = Number(el.dataset.limit || 3);
+    const today = evs.filter((e) => e.date === todayKey);
+    el.querySelector('.tw-today')!.innerHTML = today.length
+      ? today.map((e) => `<div class="tw-row${e.done ? ' done' : ''}">${e.type === 'reminder' ? (e.done ? '☑' : '☐') : '•'} ${e.time ? `<b>${e.time}</b> ` : ''}${esc(e.title)}</div>`).join('')
+      : '<div class="tw-empty">오늘은 일정이 없어요 ☁</div>';
+    const dd = evs.filter((e) => e.dday && diff(e.date) >= 0).slice(0, limit);
+    el.querySelector('.tw-dday')!.innerHTML = dd
+      .map((e) => { const n = diff(e.date); return `<div class="tw-dd"><span>${esc(e.title)}</span><em>${n === 0 ? 'D-DAY' : `D-${n}`}</em></div>`; })
+      .join('');
+  }
+</script>
+<style>
+  .today-widget { font-size: 12px; }
+  .today-widget :global(.tw-row) { padding: 2px 0; }
+  .today-widget :global(.tw-row b) { font: 400 11px var(--pixel); color: var(--pink-deep); }
+  .today-widget :global(.tw-row.done) { color: var(--mute); text-decoration: line-through; }
+  .today-widget :global(.tw-empty) { color: var(--mute); text-align: center; }
+  .tw-dday { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+  .today-widget :global(.tw-dd) { display: flex; justify-content: space-between; gap: 6px; background: var(--pink-soft); border-radius: 6px; padding: 2px 8px; }
+  .today-widget :global(.tw-dd span) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .today-widget :global(.tw-dd em) { font: normal 11px var(--pixel); color: var(--pink-deep); flex-shrink: 0; }
+  .tw-more { display: block; text-align: right; margin-top: 6px; font-size: 11px; color: var(--mute); text-decoration: none; }
+</style>

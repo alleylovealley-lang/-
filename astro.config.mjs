@@ -25,6 +25,10 @@ export default defineConfig({
   site,
   base,
   trailingSlash: 'ignore',
+  // 예전 주소로 들어와도 새 메뉴로 이동
+  redirects: Object.fromEntries(
+    [['/blog', '/diary'], ['/garden', '/diary'], ['/projects', '/portfolio']].map(([from, to]) => [from, base.replace(/\/$/, '') + to]),
+  ),
   integrations: [sitemap()],
   markdown: {
     processor: unified({ rehypePlugins: [rehypeBaseLinks()] }),

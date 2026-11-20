@@ -2,20 +2,20 @@
 import Base from '../layouts/Base.astro';
 import Deco from '../components/Deco.astro';
 import { SITE } from '../site.config';
-import { url, getPosts, getProjects, getNotes, isoDate, noteDate } from '../lib/utils';
+import { url, getDiary, getProjects, getPhotos, getCollectionItems, isoDate, md, DIARY_CATS } from '../lib/utils';
 
 const I = SITE.images;
-const [posts, projects, notes] = await Promise.all([getPosts(), getProjects(), getNotes()]);
-const recent = posts.slice(0, 4);
+const [diary, projects, photos, collection] = await Promise.all([getDiary(), getProjects(), getPhotos(), getCollectionItems()]);
+const recent = diary.slice(0, 4);
 
-// 업데이트 기록: 직접 적은 소식 + 새 글/작업/메모 자동
+// 업데이트 기록: 직접 적은 소식 + 각 메뉴의 새 기록 자동
 const updates = [
   ...SITE.updates.map((u) => ({ date: u.date, text: u.text, href: '' })),
-  ...posts.map((p) => ({ date: isoDate(p.data.date), text: `다이어리 「${p.data.title}」`, href: `/blog/${p.id}` })),
-  ...projects.map((p) => ({ date: isoDate(p.data.date), text: `작업 「${p.data.title}」`, href: `/projects/${p.id}` })),
-  ...notes.map((n) => ({ date: isoDate(noteDate(n)), text: `정원 「${n.data.title}」`, href: `/garden/${n.id}` })),
-].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
-const md = (d: string) => d.slice(5).replace('-', '.');
+  ...diary.map((p) => ({ date: isoDate(p.data.date), text: `일기 「${p.data.title}」`, href: `/diary/${p.id}` })),
+  ...photos.map((p) => ({ date: isoDate(p.data.date), text: `사진 「${p.data.caption ?? '새 사진'}」`, href: '/photo' })),
+  ...collection.map((c) => ({ date: isoDate(c.data.date), text: `컬렉션 「${c.data.title}」`, href: '/collection' })),
+  ...projects.map((p) => ({ date: isoDate(p.data.date), text: `작업 「${p.data.title}」`, href: `/portfolio/${p.id}` })),
+].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 7);
 const hasStrip = SITE.showPlaceholders || [...I.buttons, ...I.stamps, ...I.blinkies].some((d) => d.src);
 ---
 <Base bare>
@@ -44,20 +44,25 @@ const hasStrip = SITE.showPlaceholders || [...I.buttons, ...I.stamps, ...I.blink
         {updates.map((u) => <li><b>{md(u.date)}</b> {u.href ? <a href={url(u.href)}>{u.text}</a> : u.text}</li>)}
       </ul>
     </section>
-    {(I.photo.src || SITE.showPlaceholders) && (
-      <section class="p tight"><Deco item={I.photo} label="📷 포토 박스" hint="최근 사진 / 좋아하는 이미지" class="photo" /></section>
-    )}
+    <section class="p">
+      <div class="cap"><a href={url('/photo')}>little moments</a></div>
+      {photos.length ? (
+        <div class="photos">{photos.slice(0, 4).map((p) => (
+          <a href={url('/photo')} title={p.data.caption}><img src={url(p.data.image)} alt={p.data.caption ?? ''} loading="lazy" /></a>
+        ))}</div>
+      ) : <Deco item={I.photo} label="📷 포토 박스" class="photo" />}
+    </section>
   </div>
 
   {recent.length > 0 && (
     <section class="p">
-      <div class="cap">recent diary</div>
+      <div class="cap"><a href={url('/diary')}>recent diary</a></div>
       <div class="thumbs">
         {recent.map((p) => (
-          <a href={url(`/blog/${p.id}`)} class="thumb">
-            {p.data.cover ? <img src={url(p.data.cover)} alt="" loading="lazy" /> : <span class="ph"><b>♡</b></span>}
+          <a href={url(`/diary/${p.id}`)} class="thumb">
+            {p.data.cover ? <img src={url(p.data.cover)} alt="" loading="lazy" /> : <span class="ph"><b>{DIARY_CATS[p.data.category]}</b>{p.data.weather}</span>}
             <span class="t">{p.data.title}</span>
-            <time datetime={isoDate(p.data.date)}>{md(isoDate(p.data.date))}</time>
+            <time datetime={isoDate(p.data.date)}>{md(p.data.date)} · {DIARY_CATS[p.data.category]}</time>
           </a>
         ))}
       </div>
@@ -78,11 +83,16 @@ const hasStrip = SITE.showPlaceholders || [...I.buttons, ...I.stamps, ...I.blink
   .row :global(.stamp) { width: 72px; height: 56px; border-radius: 2px; }
   .row :global(.blinkie) { width: 150px; height: 31px; border-radius: 4px; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .cap a { text-decoration: none; }
   .lace { height: 14px; margin: -4px -4px 8px; background: radial-gradient(circle at 8px 0, transparent 7px, var(--pink) 7.5px, transparent 8.5px) 0 0 / 16px 14px; }
   .log { list-style: none; margin: 0; padding: 0; font-size: 12.5px; line-height: 1.8; }
+  .log li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .log b { color: var(--pink-deep); font: 400 12px var(--pixel); margin-right: 4px; }
   .log a { text-decoration: none; }
-  .two :global(.photo) { height: 100%; min-height: 170px; }
+  .photos { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .photos img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px; border: 4px solid #fff; outline: 1.5px dashed #ccc; display: block; }
+  .photos a:hover img { outline-color: var(--pink); }
+  .two :global(.photo) { height: 170px; }
   .thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
   .thumb { text-decoration: none; display: flex; flex-direction: column; font-size: 12.5px; line-height: 1.5; }
   .thumb img, .thumb .ph { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; margin-bottom: 5px; }
