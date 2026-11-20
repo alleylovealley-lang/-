@@ -3,6 +3,17 @@
 평생 쓸 개인 웹사이트입니다. 블로그 · 포트폴리오 · 디지털 정원 · 소개 페이지가 한곳에 있습니다.
 [Astro](https://astro.build)로 만든 정적 사이트이며, **모든 콘텐츠는 평범한 마크다운 파일**이라 도구가 바뀌어도 그대로 옮길 수 있습니다.
 
+## 꾸미기 이미지 넣기
+
+헤더 배너, 아이콘, 캐릭터, 88×31 버튼, 스탬프, 블링키 등 회색 줄무늬 칸은 모두 이미지로 바꿀 수 있어요.
+
+1. 이미지 파일을 `public/images/deco/` 폴더에 넣기 (gif 움짤도 가능)
+2. `src/site.config.ts`의 `images` 부분에 `'/images/deco/파일이름.png'` 적기
+3. 다 꾸몄으면 `showPlaceholders: false`로 바꾸면 빈 칸이 숨겨져요
+
+블로그 글 썸네일은 글 맨 위에 `cover: /images/posts/사진.jpg`를 적으면 됩니다.
+색은 `src/styles/global.css` 맨 위 `:root`에서 바꿀 수 있어요.
+
 ## 가장 먼저 할 일
 
 1. `src/site.config.ts` — 이름, 소개 문구, 링크(GitHub, 이메일 등) 수정

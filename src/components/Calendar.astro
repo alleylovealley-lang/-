@@ -1,0 +1,33 @@
+---
+// 달력: 오늘 날짜와, 글/메모를 쓴 날을 핑크로 표시합니다. (방문자 브라우저에서 그려짐)
+import { getPosts, getNotes, isoDate, noteDate } from '../lib/utils';
+const dates = [...new Set([...(await getPosts()).map((p) => isoDate(p.data.date)), ...(await getNotes()).map((n) => isoDate(noteDate(n)))])];
+---
+<div class="calendar" data-dates={JSON.stringify(dates)}>
+  <div class="cal-head"><button type="button" data-step="-1" aria-label="이전 달">‹</button><span class="cal-title"></span><button type="button" data-step="1" aria-label="다음 달">›</button></div>
+  <div class="cal-grid"></div>
+</div>
+<script>
+  for (const el of document.querySelectorAll<HTMLElement>('.calendar')) {
+    const marked = new Set<string>(JSON.parse(el.dataset.dates || '[]'));
+    const today = new Date();
+    let y = today.getFullYear(), m = today.getMonth();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const draw = () => {
+      el.querySelector('.cal-title')!.textContent = `${y}. ${pad(m + 1)}`;
+      const first = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate();
+      let html = ['일', '월', '화', '수', '목', '금', '토'].map((d) => `<span class="w">${d}</span>`).join('');
+      html += '<span></span>'.repeat(first);
+      for (let d = 1; d <= days; d++) {
+        const key = `${y}-${pad(m + 1)}-${pad(d)}`;
+        const cls = [marked.has(key) && 'mk', y === today.getFullYear() && m === today.getMonth() && d === today.getDate() && 't'].filter(Boolean).join(' ');
+        html += `<span class="${cls}">${d}</span>`;
+      }
+      el.querySelector('.cal-grid')!.innerHTML = html;
+    };
+    el.querySelectorAll<HTMLButtonElement>('[data-step]').forEach((b) => b.addEventListener('click', () => {
+      m += Number(b.dataset.step); if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; } draw();
+    }));
+    draw();
+  }
+</script>

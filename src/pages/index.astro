@@ -1,38 +1,95 @@
 ---
 import Base from '../layouts/Base.astro';
-import PostList from '../components/PostList.astro';
-import ProjectCards from '../components/ProjectCards.astro';
-import NoteList from '../components/NoteList.astro';
+import Deco from '../components/Deco.astro';
 import { SITE } from '../site.config';
-import { url, getPosts, getProjects, getNotes } from '../lib/utils';
+import { url, getPosts, getProjects, getNotes, isoDate, noteDate } from '../lib/utils';
 
-const posts = (await getPosts()).slice(0, 5);
-const projects = (await getProjects()).slice(0, 4);
-const notes = (await getNotes()).slice(0, 5);
+const I = SITE.images;
+const [posts, projects, notes] = await Promise.all([getPosts(), getProjects(), getNotes()]);
+const recent = posts.slice(0, 4);
+
+// 업데이트 기록: 직접 적은 소식 + 새 글/작업/메모 자동
+const updates = [
+  ...SITE.updates.map((u) => ({ date: u.date, text: u.text, href: '' })),
+  ...posts.map((p) => ({ date: isoDate(p.data.date), text: `다이어리 「${p.data.title}」`, href: `/blog/${p.id}` })),
+  ...projects.map((p) => ({ date: isoDate(p.data.date), text: `작업 「${p.data.title}」`, href: `/projects/${p.id}` })),
+  ...notes.map((n) => ({ date: isoDate(noteDate(n)), text: `정원 「${n.data.title}」`, href: `/garden/${n.id}` })),
+].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
+const md = (d: string) => d.slice(5).replace('-', '.');
+const hasStrip = SITE.showPlaceholders || [...I.buttons, ...I.stamps, ...I.blinkies].some((d) => d.src);
 ---
-<Base>
-  <section class="hero">
-    <h1>{SITE.name}</h1>
-    <p class="lead">{SITE.intro}</p>
-    <p class="muted">{SITE.description} <a href={url('/about')}>더 알아보기 →</a></p>
+<Base bare>
+  <section class="p">
+    <div class="welcome">
+      <h1>{SITE.welcome.title}</h1>
+      <div class="kw">{SITE.welcome.keywords.map((k, i) => <i class:list={{ alt: i % 2 }}>{k}</i>)}</div>
+      {SITE.welcome.text.map((t) => <p>{t}</p>)}
+      <p class="dots" aria-hidden="true">· · ♥ · · ♥ · · ♥ · ·</p>
+    </div>
   </section>
 
-  {posts.length > 0 && <>
-    <h2 class="section-title">최근 글 <a href={url('/blog')}>전체 보기</a></h2>
-    <PostList posts={posts} />
-  </>}
+  {hasStrip && (
+    <section class="p strip" aria-label="꾸미기">
+      <div class="row">{I.buttons.map((d) => <Deco item={d} label="88×31" class="b88" />)}</div>
+      <div class="row">{I.stamps.map((d) => <Deco item={d} label="스탬프" class="stamp" />)}</div>
+      <div class="row">{I.blinkies.map((d) => <Deco item={d} label="블링키" class="blinkie" />)}</div>
+    </section>
+  )}
 
-  {projects.length > 0 && <>
-    <h2 class="section-title">작업 <a href={url('/projects')}>전체 보기</a></h2>
-    <ProjectCards projects={projects} />
-  </>}
+  <div class="two">
+    <section class="p">
+      <div class="lace" aria-hidden="true"></div>
+      <div class="cap">update log</div>
+      <ul class="log">
+        {updates.map((u) => <li><b>{md(u.date)}</b> {u.href ? <a href={url(u.href)}>{u.text}</a> : u.text}</li>)}
+      </ul>
+    </section>
+    {(I.photo.src || SITE.showPlaceholders) && (
+      <section class="p tight"><Deco item={I.photo} label="📷 포토 박스" hint="최근 사진 / 좋아하는 이미지" class="photo" /></section>
+    )}
+  </div>
 
-  {notes.length > 0 && <>
-    <h2 class="section-title">최근 가꾼 정원 <a href={url('/garden')}>전체 보기</a></h2>
-    <NoteList notes={notes} />
-  </>}
+  {recent.length > 0 && (
+    <section class="p">
+      <div class="cap">recent diary</div>
+      <div class="thumbs">
+        {recent.map((p) => (
+          <a href={url(`/blog/${p.id}`)} class="thumb">
+            {p.data.cover ? <img src={url(p.data.cover)} alt="" loading="lazy" /> : <span class="ph"><b>♡</b></span>}
+            <span class="t">{p.data.title}</span>
+            <time datetime={isoDate(p.data.date)}>{md(isoDate(p.data.date))}</time>
+          </a>
+        ))}
+      </div>
+    </section>
+  )}
 </Base>
+
 <style>
-  .hero { padding-top: 1rem; }
-  .hero h1 { font-size: 2.2rem; }
+  .welcome { background: var(--pink-soft) linear-gradient(transparent 23px, #f7d5e1 24px) 0 0 / 100% 24px; border: 2px dashed var(--pink); border-radius: 10px; padding: 14px 18px; text-align: center; line-height: 24px; }
+  .welcome h1 { font-size: 26px; margin: 0 0 6px; }
+  .welcome p { margin: 0; }
+  .kw { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-bottom: 8px; }
+  .kw i { font: normal 11px/1.7 var(--pixel); padding: 0 7px; border-radius: 3px; background: #3a3a3a; color: #fff; }
+  .kw i.alt { background: var(--pink); }
+  .dots { color: var(--pink-deep); }
+  .strip { display: flex; flex-direction: column; gap: 6px; padding: 8px; background: repeating-linear-gradient(90deg, #fff 0 8px, #f6f6f6 8px 16px); border-top: 5px solid var(--pink); border-bottom: 5px solid var(--pink); overflow: hidden; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .row :global(.stamp) { width: 72px; height: 56px; border-radius: 2px; }
+  .row :global(.blinkie) { width: 150px; height: 31px; border-radius: 4px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .lace { height: 14px; margin: -4px -4px 8px; background: radial-gradient(circle at 8px 0, transparent 7px, var(--pink) 7.5px, transparent 8.5px) 0 0 / 16px 14px; }
+  .log { list-style: none; margin: 0; padding: 0; font-size: 12.5px; line-height: 1.8; }
+  .log b { color: var(--pink-deep); font: 400 12px var(--pixel); margin-right: 4px; }
+  .log a { text-decoration: none; }
+  .two :global(.photo) { height: 100%; min-height: 170px; }
+  .thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .thumb { text-decoration: none; display: flex; flex-direction: column; font-size: 12.5px; line-height: 1.5; }
+  .thumb img, .thumb .ph { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; margin-bottom: 5px; }
+  .thumb:hover img, .thumb:hover .ph { outline: 2px solid var(--pink); }
+  .thumb time { color: var(--mute); font: 11px var(--pixel); }
+  @media (max-width: 860px) {
+    .two { grid-template-columns: 1fr; }
+    .thumbs { grid-template-columns: repeat(2, 1fr); }
+  }
 </style>
