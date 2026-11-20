@@ -22,18 +22,20 @@
 
 ## 기록 쓰기
 
-> 다음 단계에서 사이트 안에서 바로 쓰는 기능이 추가될 예정이에요. 그 전까지는 아래 폴더에 파일을 만들면 됩니다.
+> 사이트 안에서 바로 쓰는 기능이 다음 단계에서 추가될 예정이에요. 그 전까지는 아래 폴더에 파일을 만들면 됩니다.
 
 | 메뉴 | 폴더 | 형식 |
 | --- | --- | --- |
-| DIARY · 일기 | `src/content/diary/` | `.md` — `category: daily` 또는 `note` |
-| SCHEDULE · 일정 / 퀘스트 | `src/content/schedule/` | `.yaml` — `type: personal`(일정) 또는 `reminder`(할 일·퀘스트) |
-| 구독 관리 | `src/content/subscriptions/` | `.yaml` |
-| PHOTO · 사진 | `src/content/photos/` + 이미지는 `public/images/photos/` | `.yaml` |
-| ARCHIVE · 아카이브 | `src/content/archive/` | `.md` — `kind: book / place / quote / thought` |
-| COLLECTION · 컬렉션 | `src/content/collection/` | `.md` — `category: moment / morning` |
-| PORTFOLIO · 작업 | `src/content/projects/` | `.md` |
-| ABOUT · 소개 | `src/pages/about.md` | |
+| RECORD › 일기 | `src/content/diary/` | `.md` — `category: daily` 또는 `note` |
+| RECORD › 사진 | `src/content/photos/` + 이미지는 `public/images/photos/` | `.yaml` |
+| RECORD › 컬렉션 | `src/content/collection/` | `.md` — `category: moment / morning` |
+| LIFE › 일정·퀘스트 | `src/content/schedule/` | `.yaml` — `type: personal`(일정) 또는 `reminder`(할 일·퀘스트) |
+| REVIEW › 독서·장소·문장 | `src/content/archive/` | `.md` — `kind: book / place / quote / thought` |
+| FINANCE › 구독 관리 | `src/content/subscriptions/` | `.yaml` |
+| WORK › 포트폴리오 | `src/content/projects/` | `.md` |
+| ETC › 소개 | `src/pages/about.md` | |
+
+메뉴 구성(대주제·하위 메뉴 이름, 설명, 순서)은 `src/site.config.ts`의 `nav`에서 바꿀 수 있어요.
 
 각 폴더의 예시 파일을 복사해서 고쳐 쓰면 가장 쉬워요. 필드 설명은 `src/content.config.ts`에 있어요.
 

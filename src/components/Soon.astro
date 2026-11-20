@@ -1,0 +1,16 @@
+---
+// 준비 중인 페이지 안내
+interface Props { what: string }
+const { what } = Astro.props;
+---
+<div class="soon">
+  <div class="ico" aria-hidden="true">🚧</div>
+  <b>준비 중이에요</b>
+  <p>{what}</p>
+</div>
+<style>
+  .soon { text-align: center; padding: 34px 16px; border: 2px dashed var(--line); border-radius: 12px; background: repeating-linear-gradient(45deg, #fafafa 0 10px, #fff 10px 20px); }
+  .ico { font-size: 34px; }
+  b { font: 400 15px var(--pixel); color: var(--pink-deep); }
+  p { margin: 6px 0 0; color: var(--mute); font-size: 13px; }
+</style>

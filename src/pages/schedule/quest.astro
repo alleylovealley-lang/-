@@ -4,14 +4,13 @@ import PageHead from '../../components/PageHead.astro';
 import Box from '../../components/Box.astro';
 import QuestBar from '../../components/QuestBar.astro';
 import { getSchedule, md } from '../../lib/utils';
-import { SCHEDULE_TABS } from './_tabs';
 const quests = (await getSchedule()).filter((e) => e.data.type === 'reminder');
 const open = quests.filter((q) => !q.data.done);
 const cleared = quests.filter((q) => q.data.done).reverse();
 ---
 <Base title="QUEST · 퀘스트" description="할 일을 퀘스트로">
   <meta slot="head" name="robots" content="noindex" />
-  <PageHead en="QUEST" ko="퀘스트" desc="할 일(REMINDER)을 완료하면 포인트가 쌓이고 레벨이 올라가요." tabs={SCHEDULE_TABS} current="/schedule/quest" />
+  <PageHead en="QUEST" ko="퀘스트" desc="할 일(REMINDER)을 완료하면 포인트가 쌓이고 레벨이 올라가요." />
   <Box title="MY LEVEL" sub="나의 레벨"><div class="lvbox"><QuestBar /></div></Box>
   <Box title="ACTIVE QUEST" sub="진행 중인 퀘스트">
     {open.length ? (

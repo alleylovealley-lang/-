@@ -9,6 +9,7 @@ import TodayWidget from '../components/TodayWidget.astro';
 import QuestBar from '../components/QuestBar.astro';
 import { SITE } from '../site.config';
 import { url, getBooks } from '../lib/utils';
+import { currentPath, findNav, groupHref } from '../lib/nav';
 
 interface Props { title?: string; description?: string; type?: 'website' | 'article'; bare?: boolean; }
 const { title, description = SITE.description, type = 'website', bare = false } = Astro.props;
@@ -16,9 +17,8 @@ const fullTitle = title ? `${title} · ${SITE.title}` : SITE.title;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const I = SITE.images;
 
-const path = Astro.url.pathname.replace(import.meta.env.BASE_URL.replace(/\/$/, ''), '') || '/';
-const path0 = path.length > 1 ? path.replace(/\/$/, '') : path;
-const active = (href: string) => (href === '/' ? path0 === '/' : path0 === href || path0.startsWith(href + '/'));
+const path = currentPath(Astro.url.pathname);
+const activeGroup = findNav(path).group?.key;
 const reading = (await getBooks()).filter((b) => b.data.status === 'reading').slice(0, 2);
 const year = new Date().getFullYear();
 ---
@@ -53,7 +53,7 @@ const year = new Date().getFullYear();
         </header>
 
         <nav class="mnav" aria-label="메뉴">
-          {SITE.nav.flatMap((n) => [n, ...(n.children ?? [])]).map((n) => <a href={url(n.href)} aria-current={active(n.href) && !SITE.nav.some((x) => x.href !== n.href && x.href.startsWith(n.href + '/') && active(x.href)) && !(n.href === '/schedule' && path0 !== '/schedule') ? 'page' : undefined}>{n.ko}</a>)}
+          {SITE.nav.map((g) => <a href={url(groupHref(g))} aria-current={activeGroup === g.key ? 'page' : undefined}>{g.label}</a>)}
         </nav>
 
         <aside class="side left">
@@ -68,7 +68,7 @@ const year = new Date().getFullYear();
           {reading.length > 0 && (
             <div class="p">
               <div class="cap">reading</div>
-              {reading.map((b) => <a class="reading" href={url('/archive#reading')}><span class="spine" aria-hidden="true"></span><span><b>{b.data.title}</b>{b.data.author && <small>{b.data.author}</small>}</span></a>)}
+              {reading.map((b) => <a class="reading" href={url('/review/reading')}><span class="spine" aria-hidden="true"></span><span><b>{b.data.title}</b>{b.data.author && <small>{b.data.author}</small>}</span></a>)}
             </div>
           )}
           {(I.sideBanner.src || SITE.showPlaceholders) && (
@@ -89,13 +89,8 @@ const year = new Date().getFullYear();
         <aside class="side right">
           <nav class="p nav" aria-label="메뉴">
             <Deco item={I.navTitle} label="NAVIGATION" class="navtitle" />
-            {SITE.nav.map((n) => (
-              <>
-                <a href={url(n.href)} aria-current={active(n.href) && !(n.children?.some((c) => active(c.href))) ? 'page' : undefined}><span>{n.label}<small>{n.ko}</small></span><span aria-hidden="true">🎀</span></a>
-                {n.children && (
-                  <div class="sub">{n.children.map((c) => <a href={url(c.href)} aria-current={active(c.href) ? 'page' : undefined}>└ {c.label}<small>{c.ko}</small></a>)}</div>
-                )}
-              </>
+            {SITE.nav.map((g) => (
+              <a href={url(groupHref(g))} aria-current={activeGroup === g.key ? 'page' : undefined}><span>{g.label}<small>{g.ko}</small></span><span aria-hidden="true">🎀</span></a>
             ))}
           </nav>
           <div class="p">

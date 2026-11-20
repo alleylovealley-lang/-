@@ -4,11 +4,10 @@ import PageHead from '../../components/PageHead.astro';
 import Box from '../../components/Box.astro';
 import Calendar from '../../components/Calendar.astro';
 import { scheduleJson } from '../../lib/utils';
-import { SCHEDULE_TABS } from './_tabs';
 const events = await scheduleJson();
 ---
 <Base title="SCHEDULE · 일정" description="시간과 날짜에 맞춰 계획을 기록하는 공간">
-  <PageHead en="SCHEDULE" ko="일정" desc="시간과 날짜에 맞춰 계획을 기록하는 공간." tabs={SCHEDULE_TABS} current="/schedule" />
+  <PageHead en="SCHEDULE" ko="일정" desc="시간과 날짜에 맞춰 계획을 기록하는 공간." />
 
   <div class="sch" data-events={JSON.stringify(events)}>
     <div class="cols">
