@@ -16,7 +16,9 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 const I = SITE.images;
 
 const path = currentPath(Astro.url.pathname);
-const activeGroup = findNav(path).group?.key;
+const { group: curGroup, item: curItem } = findNav(path);
+const activeGroup = curGroup?.key;
+const activeItem = curItem?.href;
 const reading = (await getBooks()).filter((b) => b.data.status === 'reading').slice(0, 2);
 const year = new Date().getFullYear();
 ---
@@ -91,8 +93,34 @@ const year = new Date().getFullYear();
             <a class="home" href={url('/')} aria-current={path === '/' ? 'page' : undefined}><span aria-hidden="true">🏠</span> HOME · 홈</a>
             <hr class="home-sep" />
             {SITE.nav.map((g) => (
-              <a href={url(groupHref(g))} aria-current={activeGroup === g.key ? 'page' : undefined}><span>{g.label}<small>{g.ko}</small></span><span aria-hidden="true">🎀</span></a>
+              <section class:list={['grp', { on: activeGroup === g.key }]} data-key={g.key}>
+                <div class="gh">
+                  <a href={url(groupHref(g))} aria-current={path === groupHref(g) ? 'page' : undefined}>{g.label}<small>{g.ko}</small></a>
+                  <button type="button" class="fold" aria-expanded="true" aria-controls={`nav-${g.key}`} aria-label={`${g.ko} 접기/펼치기`}>▾</button>
+                </div>
+                <ul id={`nav-${g.key}`}>
+                  {g.children.map((c) => (
+                    <li><a href={url(c.href)} aria-current={activeItem === c.href ? 'page' : undefined}><span>{c.ko}</span><small>{c.label}</small></a></li>
+                  ))}
+                </ul>
+              </section>
             ))}
+            <script is:inline>
+              (function () {
+                var KEY = 'nav-folded', folded = [];
+                try { folded = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
+                document.querySelectorAll('.grp').forEach(function (g) {
+                  var btn = g.querySelector('.fold'), k = g.dataset.key;
+                  var set = function (f) { g.classList.toggle('folded', f); btn.setAttribute('aria-expanded', String(!f)); };
+                  set(folded.indexOf(k) > -1 && !g.classList.contains('on'));
+                  btn.addEventListener('click', function () {
+                    var f = !g.classList.contains('folded'); set(f);
+                    folded = folded.filter(function (x) { return x !== k; }); if (f) folded.push(k);
+                    try { localStorage.setItem(KEY, JSON.stringify(folded)); } catch (e) {}
+                  });
+                });
+              })();
+            </script>
           </nav>
           <div class="p">
             <div class="cap">calendar</div>
@@ -102,7 +130,7 @@ const year = new Date().getFullYear();
             <div class="cap">today</div>
             <TodayWidget />
           </div>
-          <a class="p questlink" href={url('/schedule/quest')}>
+          <a class="p questlink" href={url('/game/quest')}>
             <div class="cap">quest</div>
             <QuestBar />
           </a>
