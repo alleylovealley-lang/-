@@ -1,0 +1,42 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import { getDiet, isoDate } from '../../lib/utils';
+const entries = await getDiet();
+const byDay = Map.groupBy(entries, (e) => isoDate(e.data.date));
+const ICON = { breakfast: '🍳 아침', lunch: '🍱 점심', dinner: '🍲 저녁', snack: '🍪 간식', exercise: '🏃 운동' } as const;
+const ORDER = ['breakfast', 'lunch', 'dinner', 'snack', 'exercise'];
+---
+<Base title="DIET · 식단·운동" description="식단 및 운동 기록">
+  <PageHead en="DIET" ko="식단·운동" desc="먹은 것과 움직인 것을 날짜별로." />
+  {[...byDay].map(([day, items]) => {
+    const kcal = items.reduce((s, e) => s + (e.data.kcal ?? 0), 0);
+    const min = items.reduce((s, e) => s + (e.data.minutes ?? 0), 0);
+    items.sort((a, b) => ORDER.indexOf(a.data.kind) - ORDER.indexOf(b.data.kind));
+    return (
+      <section class="day">
+        <header><b>{day.replaceAll('-', '.')}</b><span>🔥 {kcal.toLocaleString()} kcal · 🏃 {min}분</span></header>
+        <ul>{items.map((e) => (
+          <li class:list={{ ex: e.data.kind === 'exercise' }}>
+            <span class="k">{ICON[e.data.kind]}</span>
+            <span class="t">{e.data.title}{e.data.memo && <small> — {e.data.memo}</small>}</span>
+            <span class="v">{e.data.kcal ? `${e.data.kcal} kcal` : e.data.minutes ? `${e.data.minutes}분` : ''}</span>
+          </li>
+        ))}</ul>
+      </section>
+    );
+  })}
+</Base>
+<style>
+  .day { border: 1.5px solid var(--line); border-radius: 10px; margin-bottom: 12px; overflow: hidden; background: #fff; }
+  header { display: flex; justify-content: space-between; padding: 6px 12px; background: var(--pink-soft); border-bottom: 1.5px dashed var(--pink); }
+  header b { font: 400 13px var(--pixel); color: var(--pink-deep); }
+  header span { font: 11px var(--pixel); color: var(--mute); }
+  ul { list-style: none; margin: 0; padding: 4px 12px 6px; }
+  li { display: flex; gap: 10px; align-items: baseline; padding: 4px 0; border-bottom: 1px dashed #eee; font-size: 13px; }
+  li:last-child { border: none; }
+  .k { width: 64px; flex-shrink: 0; font-size: 12px; color: #777; }
+  .t { flex: 1; } .t small { color: var(--mute); }
+  .v { font: 11px var(--pixel); color: var(--mute); }
+  .ex .k { color: var(--pink-deep); }
+</style>

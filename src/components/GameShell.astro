@@ -1,0 +1,25 @@
+---
+// 게임 공통 틀: 제목 + 코인 표시 + 출석 보너스
+import PageHead from './PageHead.astro';
+interface Props { en: string; ko: string; desc: string }
+const { en, ko, desc } = Astro.props;
+---
+<PageHead en={en} ko={ko} desc={desc} />
+<div class="wallet"><span>🪙 내 코인 <b data-wallet>100</b></span><span class="bonus" data-bonus hidden>🎁 출석 보너스 +20코인!</span></div>
+<div class="game"><slot /></div>
+<script>
+  import { getCoins, dailyBonus } from '../lib/client';
+  const w = document.querySelector<HTMLElement>('[data-wallet]')!;
+  const show = () => (w.textContent = String(getCoins()));
+  window.addEventListener('coins', show);
+  if (dailyBonus()) document.querySelector<HTMLElement>('[data-bonus]')!.hidden = false;
+  show();
+</script>
+<style>
+  .wallet { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; font: 13px var(--pixel); }
+  .wallet > span:first-child { border: 2px solid #555; border-radius: 6px; padding: 3px 12px; background: linear-gradient(#fff, #f3f3f3); box-shadow: 2px 2px 0 #bbb; }
+  .wallet b { font-weight: 400; color: var(--pink-deep); }
+  .bonus { color: var(--pink-deep); animation: pop 0.5s ease-out; }
+  @keyframes pop { from { transform: scale(0.6); opacity: 0; } }
+  .game { border: 2px solid #555; border-radius: 12px; padding: 16px; background: #fff; box-shadow: 3px 3px 0 #bbb; max-width: 720px; }
+</style>

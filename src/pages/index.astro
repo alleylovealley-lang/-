@@ -2,10 +2,10 @@
 import Base from '../layouts/Base.astro';
 import Deco from '../components/Deco.astro';
 import { SITE } from '../site.config';
-import { url, getDiary, getProjects, getPhotos, getCollectionItems, isoDate, md, DIARY_CATS } from '../lib/utils';
+import { url, getDiary, getProjects, getPhotos, getScrapbook, getReviews, isoDate, md } from '../lib/utils';
 
 const I = SITE.images;
-const [diary, projects, photos, collection] = await Promise.all([getDiary(), getProjects(), getPhotos(), getCollectionItems()]);
+const [diary, projects, photos, scraps, reviews] = await Promise.all([getDiary(), getProjects(), getPhotos(), getScrapbook(), getReviews()]);
 const recent = diary.slice(0, 4);
 
 // 업데이트 기록: 직접 적은 소식 + 각 메뉴의 새 기록 자동
@@ -13,7 +13,8 @@ const updates = [
   ...SITE.updates.map((u) => ({ date: u.date, text: u.text, href: '' })),
   ...diary.map((p) => ({ date: isoDate(p.data.date), text: `일기 「${p.data.title}」`, href: `/diary/${p.id}` })),
   ...photos.map((p) => ({ date: isoDate(p.data.date), text: `사진 「${p.data.caption ?? '새 사진'}」`, href: '/photo' })),
-  ...collection.map((c) => ({ date: isoDate(c.data.date), text: `컬렉션 「${c.data.title}」`, href: '/collection' })),
+  ...scraps.map((c) => ({ date: isoDate(c.data.date), text: `스크랩 「${c.data.title ?? c.data.source ?? '새 스크랩'}」`, href: '/scrapbook' })),
+  ...reviews.filter((r) => r.data.date).map((r) => ({ date: isoDate(r.data.date!), text: `리뷰 「${r.data.title}」`, href: `/review/${r.data.kind === 'drama' ? 'movie' : r.data.kind}` })),
   ...projects.map((p) => ({ date: isoDate(p.data.date), text: `작업 「${p.data.title}」`, href: `/portfolio/${p.id}` })),
 ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 7);
 const hasStrip = SITE.showPlaceholders || [...I.buttons, ...I.stamps, ...I.blinkies].some((d) => d.src);
@@ -60,9 +61,9 @@ const hasStrip = SITE.showPlaceholders || [...I.buttons, ...I.stamps, ...I.blink
       <div class="thumbs">
         {recent.map((p) => (
           <a href={url(`/diary/${p.id}`)} class="thumb">
-            {p.data.cover ? <img src={url(p.data.cover)} alt="" loading="lazy" /> : <span class="ph"><b>{DIARY_CATS[p.data.category]}</b>{p.data.weather}</span>}
+            {p.data.cover ? <img src={url(p.data.cover)} alt="" loading="lazy" /> : <span class="ph"><b>DIARY</b>{p.data.weather}</span>}
             <span class="t">{p.data.title}</span>
-            <time datetime={isoDate(p.data.date)}>{md(p.data.date)} · {DIARY_CATS[p.data.category]}</time>
+            <time datetime={isoDate(p.data.date)}>{md(p.data.date)}{p.data.mood && ` · ${p.data.mood}`}</time>
           </a>
         ))}
       </div>

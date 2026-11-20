@@ -2,7 +2,6 @@
 title: 첫 번째 글, 평생의 기록을 시작하며
 description: 이 웹사이트를 왜 만들었는지에 대한 이야기
 date: 2026-11-19
-category: daily
 mood: ☁ 설렘
 weather: ☀️
 tags: [일상, 이 사이트]

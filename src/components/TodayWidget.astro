@@ -22,7 +22,7 @@ const events = await scheduleJson();
     const limit = Number(el.dataset.limit || 3);
     const today = evs.filter((e) => e.date === todayKey);
     el.querySelector('.tw-today')!.innerHTML = today.length
-      ? today.map((e) => `<div class="tw-row${e.done ? ' done' : ''}">${e.type === 'reminder' ? (e.done ? '☑' : '☐') : '•'} ${e.time ? `<b>${e.time}</b> ` : ''}${esc(e.title)}</div>`).join('')
+      ? today.map((e) => `<div class="tw-row${e.done ? ' done' : ''}">${e.type === 'todo' ? (e.done ? '☑' : '☐') : '•'} ${e.time ? `<b>${e.time}</b> ` : ''}${esc(e.title)}</div>`).join('')
       : '<div class="tw-empty">오늘은 일정이 없어요 ☁</div>';
     const dd = evs.filter((e) => e.dday && diff(e.date) >= 0).slice(0, limit);
     el.querySelector('.tw-dday')!.innerHTML = dd

@@ -5,9 +5,10 @@ import Deco from '../components/Deco.astro';
 import Calendar from '../components/Calendar.astro';
 import TodayWidget from '../components/TodayWidget.astro';
 import QuestBar from '../components/QuestBar.astro';
+import NavTree from '../components/NavTree.astro';
 import { SITE } from '../site.config';
-import { url, getBooks } from '../lib/utils';
-import { currentPath, findNav, groupHref } from '../lib/nav';
+import { url, getReviews } from '../lib/utils';
+import { currentPath, findNav } from '../lib/nav';
 
 interface Props { title?: string; description?: string; type?: 'website' | 'article'; bare?: boolean; }
 const { title, description = SITE.description, type = 'website', bare = false } = Astro.props;
@@ -19,7 +20,7 @@ const path = currentPath(Astro.url.pathname);
 const { group: curGroup, item: curItem } = findNav(path);
 const activeGroup = curGroup?.key;
 const activeItem = curItem?.href;
-const reading = (await getBooks()).filter((b) => b.data.status === 'reading').slice(0, 2);
+const reading = (await getReviews()).filter((b) => b.data.kind === 'book' && b.data.status === 'doing').slice(0, 2);
 const year = new Date().getFullYear();
 ---
 <!doctype html>
@@ -39,9 +40,20 @@ const year = new Date().getFullYear();
     <meta property="og:url" content={canonical} />
     <meta property="og:site_name" content={SITE.title} />
     <meta name="theme-color" content="#2f2f2f" />
+    <script is:inline>
+      try {
+        var z = JSON.parse(localStorage.getItem('hong.zoom') || '"1"'); if (z !== '1') document.documentElement.style.setProperty('zoom', z);
+        if (JSON.parse(localStorage.getItem('hong.marquee') || '"on"') === 'off') document.documentElement.classList.add('no-marquee');
+      } catch (e) {}
+    </script>
     <slot name="head" />
   </head>
   <body>
+    <div class="topbar" role="presentation">
+      <span class="tb-clock" aria-label="현재 시각">♡ <time data-clock>----.--.-- --:--:--</time></span>
+      <span class="tb-marquee" aria-hidden="true"><span class="tb-track">{[...SITE.topbar, ...SITE.topbar].map((m) => <span>{m}</span>)}</span></span>
+      <a class="tb-coin" href={url('/game/pet')} title="미니게임 코인">🪙 <b data-coins>100</b></a>
+    </div>
     <div class="outer">
       <div class="inner">
         <header class="hd">
@@ -53,8 +65,11 @@ const year = new Date().getFullYear();
         </header>
 
         <nav class="mnav" aria-label="메뉴">
-          <a href={url('/')} aria-current={path === '/' ? 'page' : undefined}>🏠</a>
-          {SITE.nav.map((g) => <a href={url(groupHref(g))} aria-current={activeGroup === g.key ? 'page' : undefined}>{g.label}</a>)}
+          <a class="mhome" href={url('/')} aria-current={path === '/' ? 'page' : undefined}>🏠 HOME</a>
+          <details>
+            <summary>☰ MENU{curItem && <small> · {curItem.ko}</small>}</summary>
+            <div class="mtree"><NavTree prefix="m" activeGroup={activeGroup} activeItem={activeItem} /></div>
+          </details>
         </nav>
 
         <aside class="side left">
@@ -69,7 +84,7 @@ const year = new Date().getFullYear();
           {reading.length > 0 && (
             <div class="p">
               <div class="cap">reading</div>
-              {reading.map((b) => <a class="reading" href={url('/review/reading')}><span class="spine" aria-hidden="true"></span><span><b>{b.data.title}</b>{b.data.author && <small>{b.data.author}</small>}</span></a>)}
+              {reading.map((b) => <a class="reading" href={url('/review/book')}><span class="spine" aria-hidden="true"></span><span><b>{b.data.title}</b>{b.data.creator && <small>{b.data.creator}</small>}</span></a>)}
             </div>
           )}
           {(I.sideBanner.src || SITE.showPlaceholders) && (
@@ -92,35 +107,7 @@ const year = new Date().getFullYear();
             <Deco item={I.navTitle} label="NAVIGATION" class="navtitle" />
             <a class="home" href={url('/')} aria-current={path === '/' ? 'page' : undefined}><span aria-hidden="true">🏠</span> HOME · 홈</a>
             <hr class="home-sep" />
-            {SITE.nav.map((g) => (
-              <section class:list={['grp', { on: activeGroup === g.key }]} data-key={g.key}>
-                <div class="gh">
-                  <a href={url(groupHref(g))} aria-current={path === groupHref(g) ? 'page' : undefined}>{g.label}<small>{g.ko}</small></a>
-                  <button type="button" class="fold" aria-expanded="true" aria-controls={`nav-${g.key}`} aria-label={`${g.ko} 접기/펼치기`}>▾</button>
-                </div>
-                <ul id={`nav-${g.key}`}>
-                  {g.children.map((c) => (
-                    <li><a href={url(c.href)} aria-current={activeItem === c.href ? 'page' : undefined}><span>{c.ko}</span><small>{c.label}</small></a></li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-            <script is:inline>
-              (function () {
-                var KEY = 'nav-folded', folded = [];
-                try { folded = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
-                document.querySelectorAll('.grp').forEach(function (g) {
-                  var btn = g.querySelector('.fold'), k = g.dataset.key;
-                  var set = function (f) { g.classList.toggle('folded', f); btn.setAttribute('aria-expanded', String(!f)); };
-                  set(folded.indexOf(k) > -1 && !g.classList.contains('on'));
-                  btn.addEventListener('click', function () {
-                    var f = !g.classList.contains('folded'); set(f);
-                    folded = folded.filter(function (x) { return x !== k; }); if (f) folded.push(k);
-                    try { localStorage.setItem(KEY, JSON.stringify(folded)); } catch (e) {}
-                  });
-                });
-              })();
-            </script>
+            <NavTree prefix="d" activeGroup={activeGroup} activeItem={activeItem} />
           </nav>
           <div class="p">
             <div class="cap">calendar</div>
@@ -130,7 +117,7 @@ const year = new Date().getFullYear();
             <div class="cap">today</div>
             <TodayWidget />
           </div>
-          <a class="p questlink" href={url('/game/quest')}>
+          <a class="p questlink" href={url('/etc/quest')}>
             <div class="cap">quest</div>
             <QuestBar />
           </a>
@@ -146,10 +133,43 @@ const year = new Date().getFullYear();
         </aside>
 
         <footer class="p foot">
-          <a href={url('/')}>home</a> | <a href={url('/about')}>about</a> | <a href={url('/tags')}>tags</a> | <a href={url('/backup')}>backup</a> | <a href={url('/rss.xml')}>rss</a>
+          <a href={url('/')}>home</a> | <a href={url('/about')}>about</a> | <a href={url('/tags')}>tags</a> | <a href={url('/archive/backup')}>backup</a> | <a href={url('/rss.xml')}>rss</a>
           <div>{SITE.name} © {SITE.startYear < year ? `${SITE.startYear}–${year}` : year} – ∞</div>
         </footer>
       </div>
     </div>
+    <script is:inline>
+      (function () {
+        var el = document.querySelector('[data-clock]'), D = '일월화수목금토';
+        var p = function (n) { return String(n).padStart(2, '0'); };
+        var tick = function () { var d = new Date(); el.textContent = d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate()) + ' (' + D[d.getDay()] + ') ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()); };
+        tick(); setInterval(tick, 1000);
+        var c = document.querySelector('[data-coins]');
+        var show = function () { try { var v = localStorage.getItem('hong.coins'); c.textContent = v == null ? '100' : JSON.parse(v); } catch (e) {} };
+        show(); window.addEventListener('coins', show); window.addEventListener('storage', show);
+      })();
+    </script>
+    <script is:inline>
+      (function () {
+        var KEY = 'hong.nav-folded', folded = [];
+        try { folded = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
+        var groups = document.querySelectorAll('.grp');
+        var apply = function () {
+          groups.forEach(function (g) {
+            var f = folded.indexOf(g.dataset.key) > -1 && !g.classList.contains('on');
+            g.classList.toggle('folded', f); g.querySelector('.gh').setAttribute('aria-expanded', String(!f));
+          });
+        };
+        groups.forEach(function (g) {
+          g.querySelector('.gh').addEventListener('click', function () {
+            var k = g.dataset.key, willFold = !g.classList.contains('folded');
+            folded = folded.filter(function (x) { return x !== k; }); if (willFold) folded.push(k);
+            try { localStorage.setItem(KEY, JSON.stringify(folded)); } catch (e) {}
+            g.classList.toggle('folded', willFold); g.querySelector('.gh').setAttribute('aria-expanded', String(!willFold));
+          });
+        });
+        apply();
+      })();
+    </script>
   </body>
 </html>

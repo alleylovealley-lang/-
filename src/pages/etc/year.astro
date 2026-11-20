@@ -1,0 +1,124 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import Box from '../../components/Box.astro';
+import {
+  getDiary, getScrapbook, getMemos, getTodos, getDiet, getHospital, getReviews, getPhotos, getMoney, getCommissions, getProjects, won, stars,
+} from '../../lib/utils';
+
+const [diary, scraps, memos, todos, diet, hosp, reviews, photos, money, comms, projects] = await Promise.all([
+  getDiary(), getScrapbook(), getMemos(), getTodos(), getDiet(), getHospital(), getReviews(), getPhotos(), getMoney(), getCommissions(), getProjects(),
+]);
+const Y = (d?: Date) => d?.getUTCFullYear();
+const years = [...new Set([diary, scraps, memos, photos, money, hosp].flatMap((c) => c.map((e: any) => Y(e.data.date))).concat(reviews.map((r) => Y(r.data.date))).filter(Boolean) as number[])].sort((a, b) => b - a);
+const stat = (y: number) => {
+  const inY = <T extends { data: any }>(arr: T[], k = 'date') => arr.filter((e) => Y(e.data[k]) === y);
+  const d = inY(diary);
+  const months = Array.from({ length: 12 }, (_, m) => d.filter((e) => e.data.date.getUTCMonth() === m).length);
+  const best = months.indexOf(Math.max(...months));
+  const rv = inY(reviews).filter((r) => r.data.status === 'done');
+  const top = [...rv].sort((a, b) => (b.data.rating ?? 0) - (a.data.rating ?? 0))[0];
+  const m = inY(money);
+  const inc = m.filter((x) => x.data.type === 'income').reduce((s, x) => s + x.data.amount, 0);
+  const exp = m.filter((x) => x.data.type === 'expense').reduce((s, x) => s + x.data.amount, 0);
+  const cat = [...Map.groupBy(m.filter((x) => x.data.type === 'expense'), (x) => x.data.category)].map(([c, xs]) => [c, xs.reduce((s, x) => s + x.data.amount, 0)] as const).sort((a, b) => b[1] - a[1])[0];
+  const cdone = comms.filter((c) => c.data.status === 'done' && Y(c.data.deadline ?? c.data.received) === y);
+  const tdone = inY(todos, 'doneAt').filter((t) => t.data.done);
+  return {
+    diary: d.length, months, best: months[best] ? `${best + 1}월` : '-',
+    scraps: inY(scraps).length, memos: inY(memos).length, photos: inY(photos).length,
+    books: rv.filter((r) => r.data.kind === 'book').length, anime: rv.filter((r) => r.data.kind === 'anime').length,
+    movies: rv.filter((r) => r.data.kind === 'movie' || r.data.kind === 'drama').length, top,
+    inc, exp, cat, cdone: cdone.length, cfee: cdone.reduce((s, c) => s + (c.data.fee ?? 0), 0),
+    todos: tdone.length, points: tdone.reduce((s, t) => s + t.data.points, 0),
+    hosp: inY(hosp).length, exMin: inY(diet).reduce((s, e) => s + (e.data.minutes ?? 0), 0),
+    works: inY(projects).length,
+  };
+};
+---
+<Base title="YEAR IN REVIEW · 연말 결산" description="한 해 기록 돌아보기">
+  <PageHead en="YEAR IN REVIEW" ko="연말 결산" desc="한 해 동안 쌓인 기록을 한눈에 돌아봐요." />
+  <div class="filter" role="group" aria-label="연도">
+    {years.map((y, i) => <button type="button" data-y={y} aria-pressed={i === 0 ? 'true' : 'false'}>{y}</button>)}
+  </div>
+  {years.map((y, i) => {
+    const s = stat(y);
+    const max = Math.max(1, ...s.months);
+    return (
+      <section class="yr" data-y={y} hidden={i !== 0}>
+        <h2 class="big">✧ {y}년의 나 ✧</h2>
+        <Box title="RECORD" sub="기록">
+          <div class="tiles">
+            <div class="hl"><small>쓴 일기</small><b>{s.diary}<i>편</i></b></div>
+            <div><small>스크랩</small><b>{s.scraps}<i>개</i></b></div>
+            <div><small>메모</small><b>{s.memos}<i>개</i></b></div>
+            <div><small>사진</small><b>{s.photos}<i>장</i></b></div>
+          </div>
+          <div class="chart" role="img" aria-label={`월별 일기 수: ${s.months.map((n, m) => `${m + 1}월 ${n}편`).join(', ')}`}>
+            <p class="ct">월별 일기 <small>가장 많이 쓴 달: {s.best}</small></p>
+            <div class="cols">{s.months.map((n, m) => (
+              <div class="col" title={`${m + 1}월: ${n}편`}>
+                <span class="v">{n || ''}</span>
+                <span class="bar" style={`height:${(n / max) * 100}%`}></span>
+                <span class="m">{m + 1}</span>
+              </div>
+            ))}</div>
+          </div>
+        </Box>
+        <Box title="REVIEW" sub="취향">
+          <div class="tiles">
+            <div><small>읽은 책</small><b>{s.books}<i>권</i></b></div>
+            <div><small>본 애니</small><b>{s.anime}<i>편</i></b></div>
+            <div><small>영화·드라마</small><b>{s.movies}<i>편</i></b></div>
+            <div class="hl wide"><small>올해 최고의 작품</small><b class="sm">{s.top ? `${s.top.data.title} ${stars(s.top.data.rating)}` : '-'}</b></div>
+          </div>
+        </Box>
+        <Box title="LIFE & MONEY" sub="생활·가계부">
+          <div class="tiles">
+            <div><small>완료한 할 일</small><b>{s.todos}<i>개</i></b></div>
+            <div><small>퀘스트 포인트</small><b>{s.points}<i>pt</i></b></div>
+            <div><small>운동 시간</small><b>{s.exMin}<i>분</i></b></div>
+            <div><small>병원 방문</small><b>{s.hosp}<i>번</i></b></div>
+            <div><small>수입</small><b class="sm">{won(s.inc)}</b></div>
+            <div><small>지출</small><b class="sm">{won(s.exp)}</b></div>
+            <div class="wide"><small>가장 많이 쓴 곳</small><b class="sm">{s.cat ? `${s.cat[0]} · ${won(s.cat[1])}` : '-'}</b></div>
+          </div>
+        </Box>
+        <Box title="WORK" sub="작업">
+          <div class="tiles">
+            <div><small>완료한 커미션</small><b>{s.cdone}<i>건</i></b></div>
+            <div><small>커미션 수입</small><b class="sm">{won(s.cfee)}</b></div>
+            <div><small>포트폴리오</small><b>{s.works}<i>개</i></b></div>
+          </div>
+        </Box>
+      </section>
+    );
+  })}
+</Base>
+<script>
+  const btns = document.querySelectorAll<HTMLButtonElement>('.filter button');
+  btns.forEach((b) => b.addEventListener('click', () => {
+    btns.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    document.querySelectorAll<HTMLElement>('.yr').forEach((s) => (s.hidden = s.dataset.y !== b.dataset.y));
+  }));
+</script>
+<style>
+  .big { text-align: center; font: 400 28px var(--hand); color: var(--pink-deep); margin: 10px 0 18px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+  .tiles > div { border: 2px solid #555; border-radius: 8px; padding: 8px 12px; background: linear-gradient(#fff, #f3f3f3); box-shadow: 2px 2px 0 #bbb; }
+  .tiles > div.hl { background: linear-gradient(#fff, var(--pink-soft)); border-color: var(--pink-deep); }
+  .tiles > div.wide { grid-column: span 2; }
+  .tiles small { display: block; color: var(--mute); font-size: 11px; }
+  .tiles b { font: 400 24px var(--pixel); }
+  .tiles b.sm { font-size: 14px; }
+  .tiles i { font: normal 12px var(--font); color: var(--mute); margin-left: 2px; }
+  .chart { margin-top: 14px; }
+  .ct { font: 12px var(--pixel); margin: 0 0 6px; } .ct small { color: var(--mute); margin-left: 6px; }
+  .cols { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; height: 120px; align-items: end; border-bottom: 1.5px solid var(--line); }
+  .col { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; position: relative; }
+  .bar { width: min(18px, 70%); min-height: 0; background: var(--pink-deep); border-radius: 4px 4px 0 0; }
+  .v { font: 10px var(--pixel); color: var(--ink); }
+  .m { position: absolute; bottom: -16px; font: 10px var(--pixel); color: var(--mute); }
+  .chart { padding-bottom: 18px; }
+  @media (max-width: 860px) { .tiles > div.wide { grid-column: auto; } }
+</style>

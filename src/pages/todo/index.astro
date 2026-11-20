@@ -1,0 +1,54 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import Box from '../../components/Box.astro';
+import { url, getTodos, isoDate, md } from '../../lib/utils';
+const todos = await getTodos();
+const open = todos.filter((t) => !t.data.done);
+const done = todos.filter((t) => t.data.done);
+const PRI = { high: '중요', normal: '보통', low: '여유' };
+---
+<Base title="TODO · 할 일" description="할 일 관리">
+  <PageHead en="TODO" ko="할 일" desc="해야 할 일 목록. 완료하면 퀘스트 포인트가 쌓여요." />
+  <div class="sumbar">
+    <div class="hl"><small>남은 할 일</small><b>{open.length}개</b></div>
+    <div><small>완료</small><b>{done.length}개</b></div>
+    <div><small>획득 포인트</small><b>{done.reduce((s, t) => s + t.data.points, 0)}pt</b></div>
+  </div>
+  <Box title="TO DO" sub="진행 중">
+    {open.length ? <ul class="todos">{open.map((t) => (
+      <li class={t.data.priority}>
+        <span class="ck" aria-hidden="true">☐</span>
+        <span class="t">{t.data.title}{t.data.memo && <small> — {t.data.memo}</small>}</span>
+        <span class="pri">{PRI[t.data.priority]}</span>
+        {t.data.due && <span class="due" data-due={isoDate(t.data.due)}>{md(t.data.due)}</span>}
+        <b>+{t.data.points}pt</b>
+      </li>
+    ))}</ul> : <p class="empty">할 일을 모두 끝냈어요! 🎉</p>}
+  </Box>
+  <Box title="DONE" sub="완료한 일">
+    <ul class="todos done">{done.map((t) => (
+      <li><span class="ck" aria-hidden="true">☑</span><span class="t">{t.data.title}</span>{t.data.doneAt && <span class="due">{md(t.data.doneAt)}</span>}<b>+{t.data.points}pt</b></li>
+    ))}</ul>
+  </Box>
+  <p class="muted small">🎮 포인트와 레벨은 <a href={url('/etc/quest')}>QUEST</a>에서 확인할 수 있어요.</p>
+</Base>
+<script>
+  import { dLabel, daysUntil } from '../../lib/client';
+  document.querySelectorAll<HTMLElement>('[data-due]').forEach((el) => {
+    const d = el.dataset.due!; el.textContent += ` · ${dLabel(d)}`; if (daysUntil(d) <= 1) el.classList.add('soon');
+  });
+</script>
+<style>
+  .todos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .todos li { display: flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); border-radius: 8px; padding: 6px 10px; background: #fff; font-size: 13px; }
+  .todos li.high { border-color: var(--pink); }
+  .ck { font-size: 15px; color: var(--pink-deep); }
+  .t { flex: 1; } .t small { color: var(--mute); }
+  .pri { font: 10px var(--pixel); padding: 0 6px; border-radius: 3px; background: #eee; color: #777; }
+  .high .pri { background: var(--pink); color: #fff; }
+  .due { font: 11px var(--pixel); color: var(--mute); }
+  .due.soon { color: var(--pink-deep); }
+  .todos b { font: 400 11px var(--pixel); color: var(--pink-deep); }
+  .done li { background: #fafafa; } .done .t { color: var(--mute); text-decoration: line-through; }
+</style>

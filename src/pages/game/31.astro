@@ -1,0 +1,82 @@
+---
+import Base from '../../layouts/Base.astro';
+import GameShell from '../../components/GameShell.astro';
+---
+<Base title="BR 31 · 배스킨라빈스 31">
+  <GameShell en="BR 31" ko="배스킨라빈스 31" desc="번갈아 1~3개씩 숫자를 이어서 말해요. 31을 말하는 사람이 져요! 이기면 코인을 받아요.">
+    <div class="setup">
+      <span>난이도</span>
+      <div class="filter" role="group" aria-label="난이도">
+        <button type="button" data-lv="easy" aria-pressed="false">쉬움 +5🪙</button>
+        <button type="button" data-lv="normal" aria-pressed="true">보통 +10🪙</button>
+        <button type="button" data-lv="hard" aria-pressed="false">어려움 +20🪙</button>
+      </div>
+      <button type="button" class="pbtn" data-new>🔄 새 게임</button>
+    </div>
+    <div class="board" data-board></div>
+    <p class="msg" data-msg aria-live="polite">내 차례예요! 몇 개를 말할까요?</p>
+    <div class="acts">
+      <button type="button" class="pbtn pink" data-say="1">1개 말하기</button>
+      <button type="button" class="pbtn pink" data-say="2">2개 말하기</button>
+      <button type="button" class="pbtn pink" data-say="3">3개 말하기</button>
+    </div>
+    <p class="legend"><i class="me"></i> 나 <i class="cpu"></i> 컴퓨터</p>
+    <p class="score" data-score></p>
+  </GameShell>
+</Base>
+<script>
+  import { load, save, addCoins } from '../../lib/client';
+  type Lv = 'easy' | 'normal' | 'hard';
+  const REWARD = { easy: 5, normal: 10, hard: 20 };
+  const $ = (s: string) => document.querySelector<HTMLElement>(`[data-${s}]`)!;
+  let lv: Lv = load<Lv>('br31.level', 'normal');
+  let rec = load<{ w: number; l: number }>('br31.record', { w: 0, l: 0 });
+  let said: ('me' | 'cpu')[] = []; let over = false; let busy = false;
+  const say = (m: string) => ($('msg').textContent = m);
+  const draw = () => {
+    $('board').innerHTML = Array.from({ length: 31 }, (_, i) => `<span class="${said[i] ?? ''}${i === 30 ? ' end' : ''}">${i + 1}</span>`).join('');
+    $('score').textContent = `전적 ${rec.w}승 ${rec.l}패`;
+    document.querySelectorAll<HTMLButtonElement>('[data-say]').forEach((b) => (b.disabled = over || busy || said.length + Number(b.dataset.say) > 31));
+    document.querySelectorAll<HTMLButtonElement>('[data-lv]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lv === lv)));
+  };
+  const finish = (loser: 'me' | 'cpu') => {
+    over = true;
+    if (loser === 'cpu') { rec.w++; addCoins(REWARD[lv]); say(`🎉 이겼어요! +${REWARD[lv]}코인`); } else { rec.l++; say('😵 31을 말해버렸어요… 졌어요!'); }
+    save('br31.record', rec); draw();
+  };
+  const speak = (who: 'me' | 'cpu', n: number) => { for (let i = 0; i < n && said.length < 31; i++) said.push(who); if (said.length >= 31) finish(who); };
+  const cpuMove = () => {
+    const cur = said.length; // 이미 말한 마지막 숫자
+    let n = 1 + Math.floor(Math.random() * 3);
+    const smart = lv === 'hard' || (lv === 'normal' && Math.random() < 0.6);
+    if (smart) { const k = ((30 - cur) % 4 + 4) % 4; if (k >= 1 && k <= 3) n = k; } // 4의 배수+2(…26, 30)를 노림
+    n = Math.min(n, 31 - cur);
+    speak('cpu', n);
+    if (!over) say(`컴퓨터가 ${n}개 말했어요 (${cur + 1}${n > 1 ? `~${cur + n}` : ''}). 내 차례!`);
+  };
+  document.querySelectorAll<HTMLButtonElement>('[data-say]').forEach((b) => b.addEventListener('click', () => {
+    if (over || busy) return;
+    speak('me', Number(b.dataset.say)); draw(); if (over) return;
+    busy = true; draw(); say('컴퓨터가 생각 중… 🤔');
+    setTimeout(() => { busy = false; cpuMove(); draw(); }, 600);
+  }));
+  const newGame = () => { said = []; over = false; busy = false; say('내 차례예요! 몇 개를 말할까요?'); draw(); };
+  document.querySelectorAll<HTMLButtonElement>('[data-lv]').forEach((b) => b.addEventListener('click', () => { lv = b.dataset.lv as Lv; save('br31.level', lv); newGame(); }));
+  $('new').addEventListener('click', newGame);
+  newGame();
+</script>
+<style>
+  .setup { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; font: 12px var(--pixel); }
+  .setup .filter { margin: 0; }
+  .board { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
+  .board :global(span) { aspect-ratio: 1; display: grid; place-items: center; border: 1.5px solid var(--line); border-radius: 50%; font: 13px var(--pixel); background: #fff; color: #bbb; }
+  .board :global(span.me) { background: var(--pink); border-color: var(--pink-deep); color: #fff; }
+  .board :global(span.cpu) { background: #3a3a3a; border-color: #2f2f2f; color: #fff; }
+  .board :global(span.end) { border: 2px dashed var(--pink-deep); }
+  .msg { font: 400 19px var(--hand); text-align: center; min-height: 1.5em; margin: 12px 0; }
+  .acts { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .legend { text-align: center; font: 11px var(--pixel); color: var(--mute); margin: 8px 0 0; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: middle; margin-left: 8px; }
+  .legend .me { background: var(--pink); } .legend .cpu { background: #3a3a3a; }
+  .score { text-align: center; font: 11px var(--pixel); color: var(--mute); margin: 10px 0 0; }
+</style>

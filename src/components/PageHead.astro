@@ -1,14 +1,14 @@
 ---
 // 페이지 제목: 대주제 경로 + 큰 영어 + 작은 한글 + 설명 + 같은 대주제의 다른 메뉴 탭 + (선택) 페이지 안 바로가기
 import { url } from '../lib/utils';
-import { currentPath, findNav, groupHref } from '../lib/nav';
+import { currentPath, findNav } from '../lib/nav';
 interface Props { en: string; ko: string; desc?: string; tabs?: { label: string; href: string }[] }
 const { en, ko, desc, tabs = [] } = Astro.props;
 const path = currentPath(Astro.url.pathname);
 const { group, item } = findNav(path);
 ---
 <header class="phead">
-  {group && <a class="crumb" href={url(groupHref(group))}>{group.label} · {group.ko} ›</a>}
+  {group && <span class="crumb">{group.label} · {group.ko} ›</span>}
   <h1><span class="en">{en}</span> <span class="ko">· {ko}</span></h1>
   {desc && <p class="desc">{desc}</p>}
   {group && group.children.length > 1 && (

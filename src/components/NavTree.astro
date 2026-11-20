@@ -1,0 +1,19 @@
+---
+// 메뉴 트리: 대주제 띠(누르면 접기/펼치기) + 소주제 링크 목록
+import { SITE } from '../site.config';
+import { url } from '../lib/utils';
+interface Props { prefix: string; activeGroup?: string; activeItem?: string }
+const { prefix, activeGroup, activeItem } = Astro.props;
+---
+{SITE.nav.map((g) => (
+  <section class:list={['grp', { on: activeGroup === g.key }]} data-key={g.key}>
+    <button type="button" class="gh" aria-expanded="true" aria-controls={`${prefix}-${g.key}`}>
+      <span class="gl">{g.label}<small>{g.ko}</small></span><span class="fold" aria-hidden="true">▾</span>
+    </button>
+    <ul id={`${prefix}-${g.key}`}>
+      {g.children.map((c) => (
+        <li><a href={url(c.href)} aria-current={activeItem === c.href ? 'page' : undefined}><span>{c.ko}</span><small>{c.label}</small></a></li>
+      ))}
+    </ul>
+  </section>
+))}
