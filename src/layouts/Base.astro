@@ -7,7 +7,7 @@ import TodayWidget from '../components/TodayWidget.astro';
 import QuestBar from '../components/QuestBar.astro';
 import NavTree from '../components/NavTree.astro';
 import { SITE } from '../site.config';
-import { url, getReviews } from '../lib/utils';
+import { url } from '../lib/utils';
 import { currentPath, findNav } from '../lib/nav';
 
 interface Props { title?: string; description?: string; type?: 'website' | 'article'; bare?: boolean; }
@@ -15,12 +15,12 @@ const { title, description = SITE.description, type = 'website', bare = false } 
 const fullTitle = title ? `${title} · ${SITE.title}` : SITE.title;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const I = SITE.images;
+const P = SITE.profile;
 
 const path = currentPath(Astro.url.pathname);
 const { group: curGroup, item: curItem } = findNav(path);
 const activeGroup = curGroup?.key;
 const activeItem = curItem?.href;
-const reading = (await getReviews()).filter((b) => b.data.kind === 'book' && b.data.status === 'doing').slice(0, 2);
 const year = new Date().getFullYear();
 ---
 <!doctype html>
@@ -57,9 +57,8 @@ const year = new Date().getFullYear();
     <div class="outer">
       <div class="inner">
         <header class="hd">
-          <a href={url('/')} class="hd-icon" aria-label="홈으로"><Deco item={I.icon} label="📷 아이콘" hint="150×150" /></a>
           <div class="banner">
-            <Deco item={I.banner} label="🖼 헤더 배너" hint="860×150" class="banner-img" />
+            <Deco item={I.banner} label="🖼 헤더 배너" hint="가로로 긴 이미지 · 1400×160" class="banner-img" />
             {SITE.headerTitle && <a href={url('/')} class="banner-title">{SITE.headerTitle}</a>}
           </div>
         </header>
@@ -73,28 +72,16 @@ const year = new Date().getFullYear();
         </nav>
 
         <aside class="side left">
-          <div class="p">
-            <Deco item={I.mascot} label="캐릭터" hint="(gif 가능)" class="mascot" />
-            <div class="me"><b>{SITE.name}</b></div>
-          </div>
-          <div class="p">
-            <div class="cap">mood</div>
-            <div class="center">{SITE.mood}</div>
-          </div>
-          {reading.length > 0 && (
-            <div class="p">
-              <div class="cap">reading</div>
-              {reading.map((b) => <a class="reading" href={url('/review/book')}><span class="spine" aria-hidden="true"></span><span><b>{b.data.title}</b>{b.data.creator && <small>{b.data.creator}</small>}</span></a>)}
-            </div>
-          )}
+          <section class="p profile" aria-label="프로필">
+            <Deco item={P.photo} label="📷 프로필 사진" hint="정사각형 · gif 가능" class="pf-photo" />
+            <div class="pf-name">{SITE.name}</div>
+            {P.status && <div class="pf-status">{P.status}</div>}
+            {P.items.length > 0 && (
+              <dl class="pf-info">{P.items.map((it) => <><dt>{it.label}</dt><dd>{it.value}</dd></>)}</dl>
+            )}
+          </section>
           {(I.sideBanner.src || SITE.showPlaceholders) && (
-            <div class="p tight"><Deco item={I.sideBanner} label="세로 배너" hint="사진·스티커" class="sidebanner" /></div>
-          )}
-          {I.friends.some((f) => f.src || SITE.showPlaceholders) && (
-            <div class="p">
-              <div class="cap">friends</div>
-              <div class="stack">{I.friends.map((f) => <Deco item={f} label="친구 버튼" hint="88×31" class="b88" />)}</div>
-            </div>
+            <div class="p tight"><Deco item={I.sideBanner} label="세로 배너" hint="컨셉 이미지 · 190×560" class="sidebanner" /></div>
           )}
         </aside>
 

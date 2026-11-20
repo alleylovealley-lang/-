@@ -31,8 +31,17 @@ export const SITE = {
     ],
   },
 
-  /** 좌측바 '오늘 기분' */
-  mood: '☁ 몽글몽글',
+  /** 좌측바 프로필 카드 — 사진 + 간단한 내 정보 (항목은 자유롭게 추가·삭제) */
+  profile: {
+    photo: { src: '', alt: '프로필 사진' } as Deco, // 정사각형 추천 (gif 가능)
+    status: '☁ 오늘도 기록 중', // 사진 아래 한 줄 상태 메시지
+    items: [
+      { label: '생일', value: '1월 1일' },
+      { label: 'MBTI', value: 'INFP' },
+      { label: '좋아함', value: '산책 · 사진 · 기록' },
+      { label: '요즘', value: '홈피 꾸미기' },
+    ],
+  },
 
   /** 메뉴 — 대주제 띠를 누르면 접기/펼치기, 소주제를 누르면 해당 페이지로 이동 */
   nav: [
@@ -121,10 +130,8 @@ export const SITE = {
 
   /** 꾸미기 이미지 */
   images: {
-    icon: { src: '', alt: '아이콘' } as Deco, // 헤더 왼쪽 정사각형 (150×150)
-    banner: { src: '', alt: '헤더 배너' } as Deco, // 헤더 배너 (860×150)
-    mascot: { src: '', alt: '캐릭터' } as Deco, // 좌측바 캐릭터
-    sideBanner: { src: '', alt: '세로 배너' } as Deco, // 좌측바 세로 배너 (130×160)
+    banner: { src: '', alt: '헤더 배너' } as Deco, // 헤더 배너 (가로로 긴 이미지, 1400×160 정도)
+    sideBanner: { src: '', alt: '세로 배너' } as Deco, // 좌측바 세로로 긴 배너 (190×560 정도, 컨셉 이미지)
     navTitle: { src: '', alt: 'navigation' } as Deco, // 메뉴 위 제목 이미지 (150×46)
     photo: { src: '', alt: '포토' } as Deco, // 홈 포토 박스
     myButton: { src: '', alt: '내 버튼' } as Deco, // 'link me!' 내 88×31 버튼
@@ -134,8 +141,6 @@ export const SITE = {
     stamps: [{ src: '' }, { src: '' }, { src: '' }, { src: '' }, { src: '' }, { src: '' }, { src: '' }] as Deco[],
     /** 홈 꾸미기 띠: 긴 블링키 (150×31 정도) */
     blinkies: [{ src: '' }, { src: '' }, { src: '' }, { src: '' }] as Deco[],
-    /** 좌측바 친구 버튼 (href에 친구 사이트 주소) */
-    friends: [{ src: '', href: '' }, { src: '', href: '' }, { src: '', href: '' }] as Deco[],
   },
 
   /** 이미지가 비어 있을 때 자리표시를 보여줄지 (꾸미기 다 끝나면 false 추천) */
