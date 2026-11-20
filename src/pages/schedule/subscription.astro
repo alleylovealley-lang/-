@@ -1,0 +1,72 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import Box from '../../components/Box.astro';
+import { getSubscriptions } from '../../lib/utils';
+import { SCHEDULE_TABS } from './_tabs';
+const subs = (await getSubscriptions()).map((s) => s.data);
+const active = subs.filter((s) => s.active);
+const monthly = active.reduce((sum, s) => sum + (s.cycle === 'yearly' ? s.price / 12 : s.price), 0);
+const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`;
+---
+<Base title="SUBSCRIPTION · 구독" description="정기구독 관리">
+  <meta slot="head" name="robots" content="noindex" />
+  <PageHead en="SUBSCRIPTION" ko="구독 관리" desc="정기구독 목록과 결제일을 한눈에." tabs={SCHEDULE_TABS} current="/schedule/subscription" />
+  <div class="sum">
+    <div><small>월 합계</small><b>{won(monthly)}</b></div>
+    <div><small>연 환산</small><b>{won(monthly * 12)}</b></div>
+    <div><small>구독 수</small><b>{active.length}개</b></div>
+  </div>
+  <Box title="LIST" sub="구독 목록">
+    <table class="subs" data-subs={JSON.stringify(active)}>
+      <thead><tr><th>서비스</th><th>분류</th><th>금액</th><th>결제일</th><th>다음 결제</th></tr></thead>
+      <tbody>
+        {active.map((s, i) => (
+          <tr>
+            <td><b>{s.name}</b>{s.memo && <small> {s.memo}</small>}</td>
+            <td>{s.category}</td>
+            <td>{won(s.price)}<small>/{s.cycle === 'yearly' ? '년' : '월'}</small></td>
+            <td>{s.cycle === 'yearly' ? `${s.billingMonth}월 ` : '매월 '}{s.billingDay}일</td>
+            <td class="next" data-i={i}></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </Box>
+  <p class="muted small">결제일은 SCHEDULE 캘린더에도 표시할 수 있어요 (다음 단계).</p>
+</Base>
+<script>
+  type Sub = { cycle: string; billingDay: number; billingMonth?: number };
+  const t = document.querySelector<HTMLElement>('.subs')!;
+  const subs: Sub[] = JSON.parse(t.dataset.subs || '[]');
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const clampDay = (y: number, m: number, d: number) => new Date(y, m, Math.min(d, new Date(y, m + 1, 0).getDate()));
+  t.querySelectorAll<HTMLElement>('.next').forEach((td) => {
+    const s = subs[Number(td.dataset.i)];
+    let next: Date;
+    if (s.cycle === 'yearly') {
+      next = clampDay(now.getFullYear(), (s.billingMonth ?? 1) - 1, s.billingDay);
+      if (next < now) next = clampDay(now.getFullYear() + 1, (s.billingMonth ?? 1) - 1, s.billingDay);
+    } else {
+      next = clampDay(now.getFullYear(), now.getMonth(), s.billingDay);
+      if (next < now) next = clampDay(now.getFullYear(), now.getMonth() + 1, s.billingDay);
+    }
+    const n = Math.round((+next - +now) / 86400000);
+    td.innerHTML = `${next.getMonth() + 1}.${next.getDate()} <em>${n === 0 ? '오늘' : `D-${n}`}</em>`;
+    if (n <= 3) td.classList.add('soon');
+  });
+</script>
+<style>
+  .sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 22px; }
+  .sum div { border: 2px solid #555; border-radius: 8px; padding: 8px 12px; background: linear-gradient(#fff, #f3f3f3); box-shadow: 2px 2px 0 #bbb; }
+  .sum div:first-child { background: linear-gradient(#fff, var(--pink-soft)); border-color: var(--pink-deep); }
+  .sum small { display: block; color: var(--mute); font-size: 11px; }
+  .sum b { font: 400 18px var(--pixel); }
+  .subs { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .subs th { font: 400 11px var(--pixel); color: var(--pink-deep); background: var(--pink-soft); text-align: left; padding: 4px 8px; }
+  .subs td { padding: 6px 8px; border-bottom: 1px dashed #e6e6e6; }
+  .subs small { color: var(--mute); }
+  .subs :global(em) { font: normal 11px var(--pixel); color: var(--mute); }
+  .subs :global(.soon em) { color: var(--pink-deep); }
+  @media (max-width: 860px) { .subs th:nth-child(2), .subs td:nth-child(2) { display: none; } .sum b { font-size: 14px; } }
+</style>

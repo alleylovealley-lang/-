@@ -5,7 +5,7 @@ const { projects } = Astro.props as { projects: CollectionEntry<'projects'>[] };
 ---
 <div class="cards">
   {projects.map((p) => (
-    <a class="card" href={url(`/projects/${p.id}`)}>
+    <a class="card" href={url(`/portfolio/${p.id}`)}>
       <span class="title">{p.data.title}</span>
       <span class="summary">{p.data.summary}</span>
       <span class="year">{p.data.date.getFullYear()}{p.data.role && ` · ${p.data.role}`}</span>

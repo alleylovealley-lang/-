@@ -9,12 +9,11 @@ export function url(path = '/'): string {
 }
 
 export function formatDate(date: Date): string {
-  return date.toLocaleDateString(SITE.locale, { year: 'numeric', month: 'long', day: 'numeric' });
+  return date.toLocaleDateString(SITE.locale, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
 }
-
-export function isoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
+export const isoDate = (date: Date) => date.toISOString().slice(0, 10);
+/** 11.20 형태 */
+export const md = (date: Date | string) => (typeof date === 'string' ? date : isoDate(date)).slice(5).replace('-', '.');
 
 /** 한국어 기준 대략적인 읽기 시간(분) */
 export function readingTime(body = ''): number {
@@ -22,39 +21,53 @@ export function readingTime(body = ''): number {
   return Math.max(1, Math.round(chars / 500));
 }
 
-const visible = ({ data }: { data: { draft: boolean } }) => import.meta.env.DEV || !data.draft;
+const visible = ({ data }: { data: { draft?: boolean } }) => import.meta.env.DEV || !data.draft;
+const byDate = <T extends { data: { date: Date } }>(a: T, b: T) => +b.data.date - +a.data.date;
 
-export async function getPosts() {
-  return (await getCollection('posts', visible)).sort((a, b) => +b.data.date - +a.data.date);
+export const DIARY_CATS = { daily: 'DAILY', note: 'NOTE' } as const;
+
+export const getDiary = async () => (await getCollection('diary', visible)).sort(byDate);
+export const getProjects = async () =>
+  (await getCollection('projects', visible)).sort((a, b) => Number(b.data.featured) - Number(a.data.featured) || byDate(a, b));
+export const getPhotos = async () => (await getCollection('photos')).sort(byDate);
+export const getSchedule = async () =>
+  (await getCollection('schedule')).sort((a, b) => +a.data.date - +b.data.date || (a.data.time ?? '').localeCompare(b.data.time ?? ''));
+export const getSubscriptions = async () => (await getCollection('subscriptions')).sort((a, b) => a.data.billingDay - b.data.billingDay);
+export const getCollectionItems = async () => (await getCollection('collection')).sort(byDate);
+export const getArchive = async () => await getCollection('archive');
+
+export type Book = Extract<CollectionEntry<'archive'>['data'], { kind: 'book' }>;
+export async function getBooks() {
+  return (await getArchive()).filter((e): e is CollectionEntry<'archive'> & { data: Book } => e.data.kind === 'book');
 }
 
-export async function getProjects() {
-  return (await getCollection('projects', visible)).sort(
-    (a, b) => Number(b.data.featured) - Number(a.data.featured) || +b.data.date - +a.data.date,
-  );
+/** 일정 데이터를 브라우저용 JSON으로 (오늘/디데이 계산은 방문 시점 기준) */
+export async function scheduleJson() {
+  return (await getSchedule()).map((e) => ({ ...e.data, date: isoDate(e.data.date) }));
 }
 
-export const noteDate = (n: CollectionEntry<'notes'>) => n.data.tended ?? n.data.planted;
-
-export async function getNotes() {
-  return (await getCollection('notes', visible)).sort((a, b) => +noteDate(b) - +noteDate(a));
+/** 퀘스트 레벨 계산: 완료한 할 일의 포인트 합계 */
+export const POINTS_PER_LEVEL = 100;
+export async function questStats() {
+  const reminders = (await getSchedule()).filter((e) => e.data.type === 'reminder');
+  const points = reminders.filter((r) => r.data.done).reduce((s, r) => s + r.data.points, 0);
+  return {
+    points,
+    level: Math.floor(points / POINTS_PER_LEVEL) + 1,
+    progress: points % POINTS_PER_LEVEL,
+    done: reminders.filter((r) => r.data.done).length,
+    total: reminders.length,
+  };
 }
 
-export const STAGES = {
-  seedling: { icon: '🌱', label: '새싹' },
-  budding: { icon: '🌿', label: '자라는 중' },
-  evergreen: { icon: '🌳', label: '상록' },
-} as const;
-
-/** 모든 컬렉션의 태그 → 항목 목록 */
+/** 태그 → 항목 목록 (일기 + 작업) */
 export async function getTagMap() {
-  const [posts, projects, notes] = await Promise.all([getPosts(), getProjects(), getNotes()]);
+  const [diary, projects] = await Promise.all([getDiary(), getProjects()]);
   type Item = { title: string; href: string; date: Date; kind: string };
   const map = new Map<string, Item[]>();
   const add = (tag: string, item: Item) => map.set(tag, [...(map.get(tag) ?? []), item]);
-  for (const p of posts) p.data.tags.forEach((t) => add(t, { title: p.data.title, href: `/blog/${p.id}`, date: p.data.date, kind: '글' }));
-  for (const p of projects) p.data.tags.forEach((t) => add(t, { title: p.data.title, href: `/projects/${p.id}`, date: p.data.date, kind: '작업' }));
-  for (const n of notes) n.data.tags.forEach((t) => add(t, { title: n.data.title, href: `/garden/${n.id}`, date: noteDate(n), kind: '정원' }));
+  for (const p of diary) p.data.tags.forEach((t) => add(t, { title: p.data.title, href: `/diary/${p.id}`, date: p.data.date, kind: '일기' }));
+  for (const p of projects) p.data.tags.forEach((t) => add(t, { title: p.data.title, href: `/portfolio/${p.id}`, date: p.data.date, kind: '작업' }));
   for (const items of map.values()) items.sort((a, b) => +b.date - +a.date);
   return new Map([...map.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])));
 }

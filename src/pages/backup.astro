@@ -1,0 +1,45 @@
+---
+import { execSync } from 'node:child_process';
+import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+import Box from '../components/Box.astro';
+
+// 사이트를 만들 때 git 저장 기록을 읽어옵니다. (모든 기록은 GitHub에 버전별로 보관돼요)
+let log: { hash: string; date: string; msg: string }[] = [];
+let total = 0;
+try {
+  log = execSync('git log -n 40 --date=format-local:%Y.%m.%d\\ %H:%M --pretty=format:%h%x09%ad%x09%s', { encoding: 'utf8', env: { ...process.env, TZ: 'Asia/Seoul' } })
+    .split('\n').filter(Boolean).map((l) => { const [hash, date, msg] = l.split('\t'); return { hash, date, msg }; });
+  total = Number(execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim());
+} catch {}
+---
+<Base title="BACKUP · 백업" description="사이트와 기록을 안전하게 보관">
+  <meta slot="head" name="robots" content="noindex" />
+  <PageHead en="BACKUP" ko="백업" desc="사이트와 기록을 안전하게 보관하기 위한 공간." />
+
+  <div class="safe">
+    <b>✔ 모든 기록은 자동으로 보관되고 있어요</b>
+    <p>일기·사진·일정은 모두 GitHub 저장소에 파일로 저장되고, 바뀔 때마다 버전 기록이 남아요. 언제든 이전 상태로 되돌릴 수 있어요.</p>
+  </div>
+
+  <Box title="백업 기록" sub={`저장 기록 · 총 ${total}번`}>
+    {log.length ? (
+      <ul class="list log">{log.map((c) => <li><span><code>{c.hash}</code> {c.msg}</span><time>{c.date}</time></li>)}</ul>
+    ) : <p class="muted small">저장 기록을 불러오지 못했어요.</p>}
+  </Box>
+
+  <Box title="백업 목록" sub="정기 백업 파일">
+    <p class="muted small">⏳ 한 달에 한 번 전체를 압축 파일로 보관하는 자동 백업은 다음 단계에서 추가돼요.</p>
+  </Box>
+
+  <Box title="복원" sub="향후 기능">
+    <p class="muted small">⏳ 백업 파일에서 되돌리는 기능은 나중에 추가할 예정이에요.</p>
+  </Box>
+</Base>
+<style>
+  .safe { border: 2px solid #555; border-radius: 8px; padding: 10px 14px; background: linear-gradient(#fff, var(--pink-soft)); box-shadow: 3px 3px 0 #bbb; margin-bottom: 22px; }
+  .safe b { font: 400 13px var(--pixel); color: var(--pink-deep); }
+  .safe p { margin: 4px 0 0; font-size: 13px; }
+  .log li { font-size: 12.5px; }
+  .log code { font-size: 10px; color: var(--mute); }
+</style>

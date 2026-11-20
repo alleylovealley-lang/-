@@ -1,0 +1,63 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import Box from '../../components/Box.astro';
+import { url, getDiary, isoDate, md, DIARY_CATS } from '../../lib/utils';
+
+const entries = await getDiary();
+const latest = entries[0];
+---
+<Base title="DIARY · 일기" description="일상과 생각, 감정을 기록하는 공간">
+  <PageHead en="DIARY" ko="일기" desc="일상과 생각, 감정 등을 기록하는 공간." />
+
+  {latest && (
+    <Box title="오늘의 기록" sub="TODAY">
+      <a class="today" href={url(`/diary/${latest.id}`)} data-date={isoDate(latest.data.date)}>
+        <span class="badge">{DIARY_CATS[latest.data.category]}</span>
+        <b>{latest.data.title}</b>
+        <span class="meta">{isoDate(latest.data.date)} {latest.data.weather} {latest.data.mood}</span>
+        <span class="excerpt">{(latest.body ?? '').replace(/[#>*`\-\[\]()!]/g, '').slice(0, 90)}…</span>
+        <span class="not-today">아직 오늘의 기록이 없어요. 가장 최근 기록이에요 ✎</span>
+      </a>
+    </Box>
+  )}
+
+  <Box title="최근 일기" sub="RECENT">
+    <div class="filter" role="group" aria-label="분류">
+      <button type="button" data-cat="all" aria-pressed="true">ALL</button>
+      <button type="button" data-cat="daily" aria-pressed="false">DAILY · 일상 기록</button>
+      <button type="button" data-cat="note" aria-pressed="false">NOTE · 생각·메모</button>
+    </div>
+    <ul class="list diary-list">
+      {entries.map((e) => (
+        <li data-cat={e.data.category}>
+          <a href={url(`/diary/${e.id}`)}><span class="badge sm">{DIARY_CATS[e.data.category]}</span> {e.data.title}{e.data.draft && <span class="muted small"> (초안)</span>}</a>
+          <time datetime={isoDate(e.data.date)}>{isoDate(e.data.date).replaceAll('-', '.')}</time>
+        </li>
+      ))}
+    </ul>
+  </Box>
+</Base>
+
+<script>
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const d = new Date(), key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  document.querySelectorAll<HTMLElement>('.today').forEach((el) => el.classList.toggle('is-today', el.dataset.date === key));
+  const btns = document.querySelectorAll<HTMLButtonElement>('.filter button');
+  btns.forEach((b) => b.addEventListener('click', () => {
+    btns.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    document.querySelectorAll<HTMLElement>('.diary-list li').forEach((li) => (li.hidden = b.dataset.cat !== 'all' && li.dataset.cat !== b.dataset.cat));
+  }));
+</script>
+
+<style>
+  .today { display: flex; flex-direction: column; gap: 3px; padding: 14px 16px; border: 2px dashed var(--pink); border-radius: 10px; background: var(--pink-soft); text-decoration: none; }
+  .today b { font: 700 20px var(--hand); }
+  .meta { color: var(--mute); font: 11px var(--pixel); }
+  .excerpt { color: #777; font-size: 13px; }
+  .not-today { font-size: 11px; color: var(--pink-deep); }
+  .today.is-today .not-today { display: none; }
+  .filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .filter button { font: 11px var(--pixel); padding: 2px 10px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; cursor: pointer; color: var(--ink); }
+  .filter button[aria-pressed='true'] { border-color: var(--pink); background: var(--pink-soft); color: var(--pink-deep); }
+</style>

@@ -1,0 +1,36 @@
+---
+import { render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import Tags from '../../components/Tags.astro';
+import { url, getDiary, formatDate, isoDate, readingTime, DIARY_CATS } from '../../lib/utils';
+
+export async function getStaticPaths() {
+  const entries = await getDiary();
+  return entries.map((entry, i) => ({ params: { slug: entry.id }, props: { entry, newer: entries[i - 1], older: entries[i + 1] } }));
+}
+const { entry, newer, older } = Astro.props;
+const { Content } = await render(entry);
+const { title, date, category, mood, weather, tags } = entry.data;
+---
+<Base title={title} type="article">
+  <article>
+    <header class="page-header">
+      <p class="small"><a href={url('/diary')}>← DIARY</a> <span class="badge sm">{DIARY_CATS[category]}</span></p>
+      <h1>{title}</h1>
+      <div class="meta">
+        <time datetime={isoDate(date)}>{formatDate(date)}</time>
+        {weather && <span>{weather}</span>}
+        {mood && <span>{mood}</span>}
+        <span>{readingTime(entry.body)}분</span>
+      </div>
+    </header>
+    <div class="prose"><Content /></div>
+    <Tags tags={tags} />
+  </article>
+  {(older || newer) && (
+    <nav class="pager" aria-label="이전/다음 일기">
+      {older ? <a href={url(`/diary/${older.id}`)}><span class="muted small">← 이전</span>{older.data.title}</a> : <span />}
+      {newer ? <a class="next" href={url(`/diary/${newer.id}`)}><span class="muted small">다음 →</span>{newer.data.title}</a> : <span />}
+    </nav>
+  )}
+</Base>
