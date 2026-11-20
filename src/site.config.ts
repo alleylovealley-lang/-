@@ -134,7 +134,6 @@ export const SITE = {
     sideBanner: { src: '', alt: '세로 배너' } as Deco, // 좌측바 세로로 긴 배너 (190×560 정도, 컨셉 이미지)
     navTitle: { src: '', alt: 'navigation' } as Deco, // 메뉴 위 제목 이미지 (150×46)
     photo: { src: '', alt: '포토' } as Deco, // 홈 포토 박스
-    myButton: { src: '', alt: '내 버튼' } as Deco, // 'link me!' 내 88×31 버튼
     /** 홈 꾸미기 띠: 88×31 버튼 */
     buttons: [{ src: '' }, { src: '' }, { src: '' }, { src: '' }, { src: '' }, { src: '' }] as Deco[],
     /** 홈 꾸미기 띠: 스탬프 (72×56 정도) */
