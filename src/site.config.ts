@@ -102,6 +102,9 @@ export const SITE = {
     },
   ] as NavGroup[],
 
+  /** 사이트 안에서 글을 저장할 GitHub 저장소 (설정 › GitHub 연결에서 열쇠를 넣으면 사용돼요) */
+  repo: { owner: 'alleylovealley-lang', name: '-', branch: 'main' },
+
   /** 맨 위 얇은 바에 흘러가는 문구 (이모지 OK) */
   topbar: ['✧ welcome to my little room ✧', '♡ 오늘도 기록하는 하루', '☁ 천천히 둘러보고 가세요', '🎀 since 2026'],
 
