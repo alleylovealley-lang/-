@@ -27,7 +27,14 @@ export default defineConfig({
   trailingSlash: 'ignore',
   // 예전 주소로 들어와도 새 메뉴로 이동
   redirects: Object.fromEntries(
-    [['/blog', '/diary'], ['/garden', '/diary'], ['/projects', '/portfolio'], ['/schedule/subscription', '/finance/subscription'], ['/schedule/quest', '/game/quest']].map(([from, to]) => [from, base.replace(/\/$/, '') + to]),
+    [
+      ['/blog', '/diary'], ['/garden', '/memo'], ['/projects', '/portfolio'], ['/collection', '/scrapbook'], ['/backup', '/archive/backup'],
+      ['/schedule/subscription', '/finance/subscription'], ['/schedule/quest', '/etc/quest'], ['/game/quest', '/etc/quest'],
+      ['/review/reading', '/review/book'], ['/review/places', '/review/book'], ['/review/notes', '/scrapbook'],
+      ['/finance/ledger', '/finance/money'], ['/archive/files', '/archive/reference'],
+      ['/record', '/diary'], ['/life', '/schedule'], ['/review', '/review/book'], ['/finance', '/finance/money'],
+      ['/work', '/work/commission'], ['/archive', '/archive/moodboard'], ['/game', '/game/pet'], ['/etc', '/etc/quest'],
+    ].map(([from, to]) => [from, base.replace(/\/$/, '') + to]),
   ),
   integrations: [sitemap()],
   markdown: {

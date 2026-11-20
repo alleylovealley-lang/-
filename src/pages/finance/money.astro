@@ -1,0 +1,67 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import Box from '../../components/Box.astro';
+import { getMoney, isoDate, md, won } from '../../lib/utils';
+const all = await getMoney();
+const months = [...Map.groupBy(all, (m) => isoDate(m.data.date).slice(0, 7))];
+---
+<Base title="MONEY · 수입·지출" description="수입 및 지출">
+  <meta slot="head" name="robots" content="noindex" />
+  <PageHead en="MONEY" ko="수입·지출" desc="한 달의 돈 흐름을 기록해요." />
+  <div class="filter" role="group" aria-label="월 선택">
+    {months.map(([m], i) => <button type="button" data-m={m} aria-pressed={i === 0 ? 'true' : 'false'}>{m.replace('-', '. ')}</button>)}
+  </div>
+  {months.map(([m, items], i) => {
+    const inc = items.filter((x) => x.data.type === 'income').reduce((s, x) => s + x.data.amount, 0);
+    const exp = items.filter((x) => x.data.type === 'expense').reduce((s, x) => s + x.data.amount, 0);
+    const cats = [...Map.groupBy(items.filter((x) => x.data.type === 'expense'), (x) => x.data.category)]
+      .map(([c, xs]) => ({ c, v: xs.reduce((s, x) => s + x.data.amount, 0) })).sort((a, b) => b.v - a.v);
+    const max = Math.max(1, ...cats.map((c) => c.v));
+    return (
+      <section class="month" data-m={m} hidden={i !== 0}>
+        <div class="sumbar">
+          <div><small>수입</small><b>+{won(inc)}</b></div>
+          <div><small>지출</small><b>-{won(exp)}</b></div>
+          <div class="hl"><small>남은 돈</small><b>{won(inc - exp)}</b></div>
+        </div>
+        <Box title="지출 분류" sub="CATEGORY">
+          <ul class="bars">{cats.map((c) => (
+            <li title={`${c.c}: ${won(c.v)} (${Math.round((c.v / exp) * 100)}%)`}>
+              <span class="c">{c.c}</span>
+              <span class="track"><i style={`width:${(c.v / max) * 100}%`}></i></span>
+              <span class="v">{won(c.v)} <small>{Math.round((c.v / exp) * 100)}%</small></span>
+            </li>
+          ))}</ul>
+        </Box>
+        <Box title="내역" sub="HISTORY">
+          <ul class="list">{items.map((x) => (
+            <li><span><span class:list={['tp', x.data.type]}>{x.data.type === 'income' ? '수입' : '지출'}</span> {x.data.memo ?? x.data.category} <small class="muted">{x.data.category}</small></span>
+              <span class:list={['amt', x.data.type]}>{x.data.type === 'income' ? '+' : '-'}{won(x.data.amount)} <time>{md(x.data.date)}</time></span></li>
+          ))}</ul>
+        </Box>
+      </section>
+    );
+  })}
+</Base>
+<script>
+  const btns = document.querySelectorAll<HTMLButtonElement>('.filter button');
+  btns.forEach((b) => b.addEventListener('click', () => {
+    btns.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    document.querySelectorAll<HTMLElement>('.month').forEach((s) => (s.hidden = s.dataset.m !== b.dataset.m));
+  }));
+</script>
+<style>
+  .month { margin-top: 12px; }
+  .bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .bars li { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: center; font-size: 12.5px; }
+  .track { height: 12px; display: block; }
+  .track i { display: block; height: 100%; min-width: 2px; background: var(--pink-deep); border-radius: 0 4px 4px 0; }
+  .v { font: 11px var(--pixel); color: var(--ink); white-space: nowrap; }
+  .v small { color: var(--mute); }
+  .tp { font: 10px var(--pixel); padding: 0 5px; border-radius: 3px; background: #eee; color: #777; }
+  .tp.income { background: #3a3a3a; color: #fff; }
+  .amt { font: 12px var(--pixel); white-space: nowrap; }
+  .amt.income { color: var(--ink); } .amt.expense { color: #777; }
+  .amt time { color: var(--mute); font-size: 10px; margin-left: 4px; }
+</style>

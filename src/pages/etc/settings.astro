@@ -1,0 +1,114 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import Box from '../../components/Box.astro';
+---
+<Base title="SETTINGS · 설정">
+  <meta slot="head" name="robots" content="noindex" />
+  <PageHead en="SETTINGS" ko="설정" desc="이 브라우저에서 보이는 방식과, 브라우저에 저장된 데이터를 관리해요." />
+
+  <Box title="DISPLAY" sub="화면">
+    <div class="row"><span>글자 크기</span>
+      <div class="filter" role="group" aria-label="글자 크기" data-group="zoom">
+        <button type="button" data-v="0.9">작게</button><button type="button" data-v="1">보통</button><button type="button" data-v="1.1">크게</button><button type="button" data-v="1.2">아주 크게</button>
+      </div>
+    </div>
+    <div class="row"><span>맨 위 흐르는 문구</span>
+      <div class="filter" role="group" aria-label="흐르는 문구" data-group="marquee">
+        <button type="button" data-v="on">움직이기</button><button type="button" data-v="off">멈추기</button>
+      </div>
+    </div>
+    <div class="row"><span>메뉴</span><button type="button" class="pbtn" data-unfold>▾ 접은 메뉴 모두 펼치기</button></div>
+  </Box>
+
+  <Box title="BROWSER DATA" sub="이 브라우저에 저장된 데이터">
+    <p class="muted small">습관 체크, 무드보드, 게임(코인·펫·도감) 기록은 이 브라우저에만 저장돼요. 다른 기기로 옮기거나 지워지기 전에 백업해 두세요.</p>
+    <table class="data" data-table></table>
+    <div class="btns">
+      <button type="button" class="pbtn" data-export>⬇ 백업 파일 내보내기</button>
+      <label class="pbtn">⬆ 백업 파일 불러오기 <input type="file" accept="application/json,.json" data-import hidden /></label>
+    </div>
+    <p class="msg" data-msg aria-live="polite"></p>
+  </Box>
+
+  <Box title="RESET" sub="초기화">
+    <div class="btns">
+      <button type="button" class="pbtn" data-reset="game">🎮 게임 데이터 초기화</button>
+      <button type="button" class="pbtn" data-reset="habit">✔ 습관 기록 초기화</button>
+      <button type="button" class="pbtn" data-reset="all">⚠ 모두 초기화</button>
+    </div>
+  </Box>
+
+  <Box title="SITE" sub="사이트 정보 바꾸기">
+    <p class="small">이름, 소개 문구, 메뉴, 꾸미기 이미지는 <code>src/site.config.ts</code>에서, 색과 글꼴은 <code>src/styles/global.css</code>에서 바꿀 수 있어요.</p>
+  </Box>
+</Base>
+<script>
+  import { load, save } from '../../lib/client';
+  const $ = (s: string) => document.querySelector<HTMLElement>(`[data-${s}]`)!;
+  const say = (m: string) => ($('msg').textContent = m);
+  const LABEL: Record<string, string> = {
+    coins: '🪙 코인', bonus: '🎁 출석 보너스', pet: '🐣 다마고치', 'fish.bucket': '🪣 낚시 바구니', 'fish.dex': '📖 낚시 도감',
+    'br31.record': '🔢 31 전적', 'br31.level': '🔢 31 난이도', 'roulette.hist': '🎡 룰렛 기록', habit: '✔ 습관 체크',
+    moodboard: '🎨 자유 무드보드', 'nav-folded': '☰ 접은 메뉴', zoom: '🔠 글자 크기', marquee: '✧ 흐르는 문구',
+  };
+  const GAME = ['coins', 'bonus', 'pet', 'fish.bucket', 'fish.dex', 'br31.record', 'br31.level', 'roulette.hist'];
+  const keys = () => { const out: string[] = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i)!; if (k.startsWith('hong.')) out.push(k.slice(5)); } } catch {} return out.sort(); };
+  const drawTable = () => {
+    const ks = keys();
+    $('table').innerHTML = ks.length ? '<tr><th>항목</th><th>크기</th></tr>' + ks.map((k) => `<tr><td>${LABEL[k] ?? k}</td><td>${(localStorage.getItem('hong.' + k) ?? '').length.toLocaleString()} 글자</td></tr>`).join('') : '<tr><td>저장된 데이터가 없어요</td></tr>';
+  };
+  // 화면 설정
+  const groups: Record<string, string> = { zoom: load('zoom', '1'), marquee: load('marquee', 'on') };
+  const applyDisplay = () => {
+    document.documentElement.style.setProperty('zoom', groups.zoom);
+    document.documentElement.classList.toggle('no-marquee', groups.marquee === 'off');
+    document.querySelectorAll<HTMLElement>('[data-group]').forEach((g) => g.querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === groups[g.dataset.group!]))));
+  };
+  document.querySelectorAll<HTMLElement>('[data-group]').forEach((g) => g.querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.addEventListener('click', () => {
+    groups[g.dataset.group!] = b.dataset.v!; save(g.dataset.group!, b.dataset.v); applyDisplay(); drawTable();
+  })));
+  $('unfold').addEventListener('click', () => {
+    save('nav-folded', []); document.querySelectorAll('.grp.folded').forEach((g) => { g.classList.remove('folded'); g.querySelector('.gh')?.setAttribute('aria-expanded', 'true'); });
+    say('메뉴를 모두 펼쳤어요'); drawTable();
+  });
+  // 내보내기 / 불러오기
+  $('export').addEventListener('click', () => {
+    const data: Record<string, unknown> = {};
+    keys().forEach((k) => { try { data[k] = JSON.parse(localStorage.getItem('hong.' + k)!); } catch {} });
+    const blob = new Blob([JSON.stringify({ site: 'hong-room', exported: new Date().toISOString(), data }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `room-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(a.href);
+    say('백업 파일을 내려받았어요 💾');
+  });
+  ($('import') as HTMLInputElement).addEventListener('change', async (e) => {
+    const f = (e.target as HTMLInputElement).files?.[0]; if (!f) return;
+    try {
+      const j = JSON.parse(await f.text());
+      if (!j || typeof j.data !== 'object') throw new Error('형식');
+      Object.entries(j.data).forEach(([k, v]) => save(k, v));
+      say(`불러오기 완료! (${Object.keys(j.data).length}개 항목)`); drawTable(); window.dispatchEvent(new Event('coins'));
+    } catch { say('이 파일은 불러올 수 없어요. 내보내기로 만든 백업 파일인지 확인해 주세요.'); }
+    (e.target as HTMLInputElement).value = '';
+  });
+  // 초기화
+  document.querySelectorAll<HTMLButtonElement>('[data-reset]').forEach((b) => b.addEventListener('click', () => {
+    const t = b.dataset.reset!;
+    const target = t === 'game' ? GAME : t === 'habit' ? ['habit'] : keys();
+    if (!confirm(t === 'all' ? '이 브라우저에 저장된 모든 데이터를 지울까요? 되돌릴 수 없어요.' : '정말 초기화할까요? 되돌릴 수 없어요.')) return;
+    target.forEach((k) => { try { localStorage.removeItem('hong.' + k); } catch {} });
+    say('초기화했어요'); drawTable(); window.dispatchEvent(new Event('coins'));
+    if (t === 'all') { groups.zoom = '1'; groups.marquee = 'on'; applyDisplay(); }
+  }));
+  applyDisplay(); drawTable();
+</script>
+<style>
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; }
+  .row > span { width: 120px; font: 12px var(--pixel); }
+  .row .filter { margin: 0; }
+  .data { border-collapse: collapse; font-size: 12.5px; margin: 8px 0; min-width: 260px; }
+  .data :global(th) { font: 400 11px var(--pixel); color: var(--pink-deep); background: var(--pink-soft); text-align: left; padding: 3px 8px; }
+  .data :global(td) { padding: 3px 8px; border-bottom: 1px dashed #e6e6e6; }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; }
+  label.pbtn { display: inline-flex; align-items: center; }
+  .msg { font-size: 12.5px; color: var(--pink-deep); min-height: 1.4em; margin: 8px 0 0; }
+</style>

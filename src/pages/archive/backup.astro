@@ -1,0 +1,56 @@
+---
+import { execSync } from 'node:child_process';
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import Box from '../../components/Box.astro';
+import { url, getBackups, isoDate } from '../../lib/utils';
+
+// 사이트를 만들 때 git 저장 기록을 읽어옵니다. (모든 기록은 GitHub에 버전별로 보관돼요)
+let log: { hash: string; date: string; msg: string }[] = [];
+let total = 0;
+try {
+  log = execSync('git log -n 40 --date=format-local:%Y.%m.%d\\ %H:%M --pretty=format:%h%x09%ad%x09%s', { encoding: 'utf8', env: { ...process.env, TZ: 'Asia/Seoul' } })
+    .split('\n').filter(Boolean).map((l) => { const [hash, date, msg] = l.split('\t'); return { hash, date, msg }; });
+  total = Number(execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim());
+} catch {}
+const links = await getBackups();
+---
+<Base title="BACKUP LINKS · 백업 링크" description="사이트 및 자료 백업 링크">
+  <meta slot="head" name="robots" content="noindex" />
+  <PageHead en="BACKUP LINKS" ko="백업 링크" desc="사이트와 자료를 백업해 둔 곳을 모아둬요." />
+
+  <Box title="LINKS" sub="백업 링크">
+    <div class="links">{links.map((l) => (
+      <a class="lk" href={l.data.url} target="_blank" rel="noopener">
+        <span class="k">{l.data.kind}</span><b>💾 {l.data.title} ↗</b>
+        {l.data.note && <small>{l.data.note}</small>}
+        {l.data.date && <small>마지막 백업 {isoDate(l.data.date)}</small>}
+      </a>
+    ))}</div>
+    <p class="muted small">📝 백업 관련 메모는 <a href={url('/memo#backup')}>MEMO › 백업 메모</a>에 있어요.</p>
+  </Box>
+
+  <div class="safe">
+    <b>✔ 모든 기록은 자동으로 보관되고 있어요</b>
+    <p>일기·사진·일정은 모두 GitHub 저장소에 파일로 저장되고, 바뀔 때마다 버전 기록이 남아요. 언제든 이전 상태로 되돌릴 수 있어요.</p>
+  </div>
+
+  <Box title="SITE HISTORY" sub={`사이트 저장 기록 · 총 ${total}번`}>
+    {log.length ? (
+      <ul class="list log">{log.map((c) => <li><span><code>{c.hash}</code> {c.msg}</span><time>{c.date}</time></li>)}</ul>
+    ) : <p class="muted small">저장 기록을 불러오지 못했어요.</p>}
+  </Box>
+
+</Base>
+<style>
+  .safe { border: 2px solid #555; border-radius: 8px; padding: 10px 14px; background: linear-gradient(#fff, var(--pink-soft)); box-shadow: 3px 3px 0 #bbb; margin-bottom: 22px; }
+  .safe b { font: 400 13px var(--pixel); color: var(--pink-deep); }
+  .safe p { margin: 4px 0 0; font-size: 13px; }
+  .log li { font-size: 12.5px; }
+  .log code { font-size: 10px; color: var(--mute); }
+  .links { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin-bottom: 8px; }
+  .lk { display: flex; flex-direction: column; gap: 2px; border: 2px solid #555; border-radius: 8px; padding: 8px 12px; background: linear-gradient(#fff, #f3f3f3); box-shadow: 2px 2px 0 #bbb; text-decoration: none; }
+  .lk:hover { border-color: var(--pink-deep); background: linear-gradient(#fff, var(--pink-soft)); }
+  .lk .k { font: 10px var(--pixel); color: var(--pink-deep); }
+  .lk small { color: var(--mute); font-size: 11px; }
+</style>

@@ -1,0 +1,67 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import Box from '../../components/Box.astro';
+import { getHabits } from '../../lib/utils';
+const habits = (await getHabits()).map((h) => ({ id: h.id, ...h.data }));
+---
+<Base title="HABIT · 습관" description="매일 하는 일">
+  <PageHead en="HABIT" ko="습관" desc="고정적으로 매일 할 일. 체크하면 이 브라우저에 저장되고, 습관 포인트가 쌓여요." />
+  <div class="habit" data-habits={JSON.stringify(habits)}>
+    <Box title="TODAY" sub="오늘의 습관">
+      <p class="date" data-role="date"></p>
+      <ul class="checks" data-role="checks"></ul>
+      <div class="prog"><i data-role="bar"></i></div>
+      <p class="muted small" data-role="summary"></p>
+    </Box>
+    <Box title="LAST 14 DAYS" sub="최근 2주 기록">
+      <div class="gridwrap"><table class="grid" data-role="grid"></table></div>
+    </Box>
+  </div>
+  <p class="muted small">✎ 습관 목록은 <code>src/content/habit/</code>에서 바꿀 수 있어요. 체크 기록은 SETTINGS에서 백업할 수 있어요.</p>
+</Base>
+<script>
+  import { keyOf, todayKey, load, save, esc } from '../../lib/client';
+  type H = { id: string; name: string; emoji: string; points: number };
+  const root = document.querySelector<HTMLElement>('.habit')!;
+  const habits: H[] = JSON.parse(root.dataset.habits || '[]');
+  const $ = (r: string) => root.querySelector<HTMLElement>(`[data-role="${r}"]`)!;
+  let log = load<Record<string, string[]>>('habit', {});
+  const days = (n: number) => Array.from({ length: n }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (n - 1 - i)); return d; });
+  const streak = (id: string) => { let s = 0; const d = new Date(); if (!(log[keyOf(d)] ?? []).includes(id)) d.setDate(d.getDate() - 1); while ((log[keyOf(d)] ?? []).includes(id)) { s++; d.setDate(d.getDate() - 1); } return s; };
+  const draw = () => {
+    const t = todayKey(), done = log[t] ?? [];
+    const now = new Date();
+    $('date').textContent = `${now.getMonth() + 1}월 ${now.getDate()}일 ${'일월화수목금토'[now.getDay()]}요일`;
+    $('checks').innerHTML = habits.map((h) => `<li><label class="${done.includes(h.id) ? 'on' : ''}"><input type="checkbox" data-id="${h.id}" ${done.includes(h.id) ? 'checked' : ''}> <span class="e">${h.emoji}</span> <span class="n">${esc(h.name)}</span> <small>🔥 ${streak(h.id)}일 · +${h.points}pt</small></label></li>`).join('');
+    const pct = habits.length ? Math.round((done.length / habits.length) * 100) : 0;
+    $('bar').style.width = pct + '%';
+    const total = Object.values(log).reduce((s, ids) => s + ids.reduce((a, id) => a + (habits.find((h) => h.id === id)?.points ?? 0), 0), 0);
+    $('summary').textContent = `오늘 ${done.length}/${habits.length} 완료 (${pct}%) · 지금까지 습관 포인트 ${total}pt`;
+    const ds = days(14);
+    $('grid').innerHTML = `<tr><th></th>${ds.map((d) => `<th>${d.getDate()}</th>`).join('')}</tr>` +
+      habits.map((h) => `<tr><td>${h.emoji}</td>${ds.map((d) => `<td class="${(log[keyOf(d)] ?? []).includes(h.id) ? 'on' : ''}" title="${keyOf(d)}"></td>`).join('')}</tr>`).join('');
+    $('checks').querySelectorAll<HTMLInputElement>('input').forEach((cb) => cb.addEventListener('change', () => {
+      const cur = new Set(log[t] ?? []); cb.checked ? cur.add(cb.dataset.id!) : cur.delete(cb.dataset.id!);
+      log = { ...log, [t]: [...cur] }; save('habit', log); draw();
+    }));
+  };
+  draw();
+</script>
+<style>
+  .date { font: 13px var(--pixel); color: var(--pink-deep); margin: 0 0 8px; }
+  .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .checks :global(label) { display: flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); border-radius: 8px; padding: 7px 12px; background: #fff; cursor: pointer; font-size: 13.5px; }
+  .checks :global(label.on) { background: var(--pink-soft); border-color: var(--pink); }
+  .checks :global(label.on .n) { text-decoration: line-through; color: var(--mute); }
+  .checks :global(input) { accent-color: var(--pink-deep); width: 16px; height: 16px; }
+  .checks :global(.n) { flex: 1; }
+  .checks :global(small) { font: 11px var(--pixel); color: var(--mute); }
+  .prog { height: 12px; border: 1.5px solid #555; border-radius: 3px; background: #fff; margin: 12px 0 4px; overflow: hidden; }
+  .prog i { display: block; height: 100%; width: 0; background: repeating-linear-gradient(90deg, var(--pink) 0 6px, var(--pink-deep) 6px 8px); transition: width 0.3s; }
+  .gridwrap { overflow-x: auto; }
+  .grid { border-collapse: separate; border-spacing: 3px; font: 10px var(--pixel); color: var(--mute); }
+  .grid :global(td) { width: 20px; height: 20px; background: #f1f1f1; border-radius: 3px; text-align: center; }
+  .grid :global(td:first-child) { background: none; font-size: 14px; }
+  .grid :global(td.on) { background: var(--pink); }
+</style>

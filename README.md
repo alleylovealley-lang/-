@@ -26,40 +26,39 @@
 
 | 메뉴 | 폴더 | 형식 |
 | --- | --- | --- |
-| RECORD › 일기 | `src/content/diary/` | `.md` — `category: daily` 또는 `note` |
-| RECORD › 사진 | `src/content/photos/` + 이미지는 `public/images/photos/` | `.yaml` |
-| RECORD › 컬렉션 | `src/content/collection/` | `.md` — `category: moment / morning` |
-| LIFE › 일정 / GAME › 퀘스트 | `src/content/schedule/` | `.yaml` — `type: personal`(일정) 또는 `reminder`(할 일·퀘스트) |
-| REVIEW › 독서·장소·문장 | `src/content/archive/` | `.md` — `kind: book / place / quote / thought` |
+| RECORD › 일기 | `src/content/diary/` | `.md` |
+| RECORD › 스크랩북 | `src/content/scrapbook/` | `.md` — `kind: image / link / quote` |
+| RECORD › 메모 | `src/content/memo/` | `.md` — `tags: [백업]`이면 백업 메모 |
+| LIFE › 일정 | `src/content/schedule/` | `.yaml` — `dday: true`면 D-Day |
+| LIFE › 할 일 | `src/content/todo/` | `.yaml` — `done: true`면 완료(퀘스트 포인트) |
+| LIFE › 식단·운동 | `src/content/diet/` | `.yaml` — `kind: breakfast / lunch / dinner / snack / exercise` |
+| LIFE › 병원 | `src/content/hospital/` | `.yaml` |
+| LIFE › 습관 | `src/content/habit/` | `.yaml` (습관 목록, 체크는 사이트에서) |
+| REVIEW › 도서·애니·영화·드라마 | `src/content/reviews/` | `.md` — `kind: book / anime / movie / drama` |
+| REVIEW › 플레이리스트 | `src/content/playlist/` | `.yaml` — 애플뮤직 공유 링크 |
+| FINANCE › 수입·지출 | `src/content/money/` | `.yaml` — `type: income / expense` |
 | FINANCE › 구독 관리 | `src/content/subscriptions/` | `.yaml` |
+| WORK › 커미션 | `src/content/commissions/` | `.yaml` — `status: inquiry / progress / done / canceled` |
 | WORK › 포트폴리오 | `src/content/projects/` | `.md` |
-| ETC › 소개 | `src/pages/about.md` | |
+| ARCHIVE › 무드보드 | `src/content/moodboards/` | `.yaml` (자유 무드보드는 사이트에서) |
+| ARCHIVE › 레퍼런스 | `src/content/references/` | `.yaml` — `album:`으로 분류 |
+| ARCHIVE › 사진 | `src/content/photos/` + 이미지는 `public/images/photos/` | `.yaml` — `album:`으로 분류 |
+| ARCHIVE › 백업 링크 | `src/content/backups/` | `.yaml` |
+
+GAME(다마고치·낚시터·31·룰렛)과 습관 체크, 자유 무드보드는 **이 브라우저에 저장**돼요. ETC › SETTINGS에서 백업 파일로 내보내고 불러올 수 있어요.
 
 메뉴 구성(대주제·하위 메뉴 이름, 설명, 순서)은 `src/site.config.ts`의 `nav`에서 바꿀 수 있어요.
 
 각 폴더의 예시 파일을 복사해서 고쳐 쓰면 가장 쉬워요. 필드 설명은 `src/content.config.ts`에 있어요.
 
-### 예시: 일정 (`src/content/schedule/dentist.yaml`)
+### 예시: 할 일 (`src/content/todo/tax.yaml`)
 
 ```yaml
-title: 치과 정기검진
-date: 2026-11-26
-time: "11:30"
-type: personal   # personal(일정) / reminder(할 일)
-dday: false      # true면 D-Day 카운트
-done: false      # 할 일 완료 여부 (완료하면 퀘스트 포인트 획득)
-points: 10
-```
-
-### 예시: 문장 (`src/content/archive/quote-1.md`)
-
-```md
----
-kind: quote
-source: 느리게 걷는 법
-starred: true   # ★ COLLECTION에도 표시
----
-빨리 가는 것보다 오래 보는 것이 더 많은 것을 남긴다.
+title: 연말정산 서류 챙기기
+due: 2026-12-15
+priority: high   # high / normal / low
+points: 30       # 완료하면 받는 퀘스트 포인트
+done: false
 ```
 
 ## 내 컴퓨터에서 보기

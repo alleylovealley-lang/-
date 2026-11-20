@@ -1,0 +1,41 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import Box from '../../components/Box.astro';
+import { render } from 'astro:content';
+import { getMemos, isoDate } from '../../lib/utils';
+const memos = await Promise.all((await getMemos()).map(async (e) => ({ e, Content: (await render(e)).Content })));
+const backup = memos.filter(({ e }) => e.data.tags.includes('백업'));
+const free = memos.filter(({ e }) => !e.data.tags.includes('백업'));
+---
+<Base title="MEMO · 메모" description="자유 메모 및 백업 관련 메모">
+  <PageHead en="MEMO" ko="메모" desc="자유롭게 적는 메모와 백업 관련 메모." tabs={[{ label: '자유 메모', href: '#free' }, { label: '백업 메모', href: '#backup' }]} />
+  <Box title="자유 메모" sub="FREE" id="free">
+    <div class="memos">{free.map(({ e, Content }) => (
+      <article class:list={['memo', { pin: e.data.pinned }]}>
+        <header><b>{e.data.pinned && '📌 '}{e.data.title}</b><time>{isoDate(e.data.date)}</time></header>
+        <div class="tx"><Content /></div>
+        {e.data.tags.length > 0 && <div class="tg">{e.data.tags.map((t) => <span>#{t}</span>)}</div>}
+      </article>
+    ))}</div>
+  </Box>
+  <Box title="백업 메모" sub="#백업 태그를 단 메모" id="backup">
+    {backup.length ? <div class="memos">{backup.map(({ e, Content }) => (
+      <article class="memo bk"><header><b>💾 {e.data.title}</b><time>{isoDate(e.data.date)}</time></header><div class="tx"><Content /></div></article>
+    ))}</div> : <p class="muted small">아직 백업 메모가 없어요. 메모에 <code>tags: [백업]</code>을 달면 여기에 모여요.</p>}
+  </Box>
+</Base>
+<style>
+  .memos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .memo { background: #fffdf4; border: 1.5px solid #e9e4cf; border-radius: 4px 4px 14px 4px; padding: 10px 12px; box-shadow: 2px 2px 0 #eee; }
+  .memo.pin { background: var(--pink-soft); border-color: var(--pink); }
+  .memo.bk { background: #f6f6f6; border-color: var(--line); }
+  header { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
+  header b { font-size: 13.5px; }
+  time { font: 10px var(--pixel); color: var(--mute); flex-shrink: 0; }
+  .tx { font-size: 12.5px; color: #555; }
+  .tx :global(p), .tx :global(ul) { margin: 6px 0 0; }
+  .tx :global(ul) { padding-left: 18px; }
+  .tg { margin-top: 6px; display: flex; gap: 4px; flex-wrap: wrap; }
+  .tg span { font: 10px var(--pixel); color: var(--pink-deep); }
+</style>

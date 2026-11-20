@@ -2,7 +2,7 @@
 import { render } from 'astro:content';
 import Base from '../../layouts/Base.astro';
 import Tags from '../../components/Tags.astro';
-import { url, getDiary, formatDate, isoDate, readingTime, DIARY_CATS } from '../../lib/utils';
+import { url, getDiary, formatDate, isoDate, readingTime } from '../../lib/utils';
 
 export async function getStaticPaths() {
   const entries = await getDiary();
@@ -10,12 +10,12 @@ export async function getStaticPaths() {
 }
 const { entry, newer, older } = Astro.props;
 const { Content } = await render(entry);
-const { title, date, category, mood, weather, tags } = entry.data;
+const { title, date, mood, weather, tags } = entry.data;
 ---
 <Base title={title} type="article">
   <article>
     <header class="page-header">
-      <p class="small"><a href={url('/diary')}>← DIARY</a> <span class="badge sm">{DIARY_CATS[category]}</span></p>
+      <p class="small"><a href={url('/diary')}>← DIARY</a></p>
       <h1>{title}</h1>
       <div class="meta">
         <time datetime={isoDate(date)}>{formatDate(date)}</time>

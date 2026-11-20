@@ -1,0 +1,38 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import { getPlaylist } from '../../lib/utils';
+const lists = await getPlaylist();
+/** music.apple.com 공유 링크 → 임베드 주소 */
+const embed = (u: string) => u.replace('://music.apple.com/', '://embed.music.apple.com/');
+const isApple = (u: string) => /\/\/(embed\.)?music\.apple\.com\//.test(u);
+---
+<Base title="PLAYLIST · 플레이리스트" description="애플뮤직 플레이리스트">
+  <PageHead en="PLAYLIST" ko="플레이리스트" desc="좋아하는 노래 모음 (애플뮤직)." />
+  <div class="lists">
+    {lists.map((p) => (
+      <section class="pl">
+        <h2>♪ {p.data.title}</h2>
+        {p.data.note && <p class="muted small">{p.data.note}</p>}
+        {isApple(p.data.url) ? (
+          <iframe title={p.data.title} src={embed(p.data.url)} loading="lazy" height="450" allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write" sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"></iframe>
+        ) : <a href={p.data.url} rel="noopener" target="_blank">{p.data.url}</a>}
+      </section>
+    ))}
+  </div>
+  <div class="how">
+    <b>🎵 플레이리스트 추가하는 법</b>
+    <ol>
+      <li>애플뮤직에서 플레이리스트(또는 앨범·노래)의 <b>공유 → 링크 복사</b></li>
+      <li><code>src/content/playlist/</code>에 파일을 만들고 <code>url:</code>에 붙여넣기</li>
+      <li>사이트에 자동으로 재생 가능한 플레이어가 보여요</li>
+    </ol>
+  </div>
+</Base>
+<style>
+  .lists { display: grid; gap: 16px; }
+  h2 { font: 400 15px var(--pixel); color: var(--pink-deep); margin: 0 0 4px; }
+  iframe { width: 100%; max-width: 660px; border: 2px solid var(--line); border-radius: 12px; background: #fafafa; }
+  .how { margin-top: 20px; border: 2px dashed var(--pink); border-radius: 10px; padding: 10px 14px; background: var(--pink-soft); font-size: 13px; }
+  .how ol { margin: 6px 0 0; padding-left: 20px; }
+</style>

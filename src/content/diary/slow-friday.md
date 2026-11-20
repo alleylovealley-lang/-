@@ -1,7 +1,6 @@
 ---
 title: 느긋한 금요일
 date: 2026-11-20
-category: daily
 mood: 🍵 평온
 weather: ☁️
 tags: [일상]

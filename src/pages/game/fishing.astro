@@ -1,0 +1,91 @@
+---
+import Base from '../../layouts/Base.astro';
+import GameShell from '../../components/GameShell.astro';
+---
+<Base title="FISHING · 낚시터">
+  <GameShell en="FISHING" ko="낚시터" desc="찌가 흔들리고 ❗가 뜨면 재빨리 낚아올려요! 잡은 물고기는 팔아서 코인으로 바꿀 수 있어요.">
+    <div class="pond" data-pond>
+      <div class="sky">☁️ <span class="sun">☀️</span> ☁️</div>
+      <div class="water">
+        <span class="bob" data-bob hidden>🔴</span>
+        <span class="alert" data-alert hidden>❗</span>
+        <span class="f f1">🐟</span><span class="f f2">🐠</span>
+      </div>
+    </div>
+    <p class="msg" data-msg aria-live="polite">던지기를 눌러 낚싯대를 던져보세요 🎣</p>
+    <div class="acts">
+      <button type="button" class="pbtn pink" data-cast>🎣 던지기</button>
+      <button type="button" class="pbtn" data-sell>💰 모두 팔기</button>
+    </div>
+    <h3>🪣 바구니 <small data-bucket-sum></small></h3>
+    <div class="bucket" data-bucket></div>
+    <h3>📖 도감 <small data-dex-count></small></h3>
+    <div class="dex" data-dex></div>
+  </GameShell>
+</Base>
+<script>
+  import { load, save, addCoins } from '../../lib/client';
+  const FISH = [
+    { id: 'crucian', e: '🐟', n: '붕어', w: 40, p: 5 }, { id: 'shrimp', e: '🦐', n: '새우', w: 18, p: 6 },
+    { id: 'tropical', e: '🐠', n: '열대어', w: 18, p: 10 }, { id: 'crab', e: '🦀', n: '꽃게', w: 9, p: 15 },
+    { id: 'puffer', e: '🐡', n: '복어', w: 9, p: 18 }, { id: 'squid', e: '🦑', n: '오징어', w: 6, p: 22 },
+    { id: 'octopus', e: '🐙', n: '문어', w: 4, p: 30 }, { id: 'boot', e: '👢', n: '헌 장화', w: 7, p: 0 },
+    { id: 'ribbon', e: '🎀', n: '리본 상자', w: 2, p: 50 }, { id: 'whale', e: '🐋', n: '아기 고래', w: 1, p: 100 },
+  ];
+  const $ = (s: string) => document.querySelector<HTMLElement>(`[data-${s}]`)!;
+  let bucket = load<string[]>('fish.bucket', []);
+  let dex = load<Record<string, number>>('fish.dex', {});
+  let state: 'idle' | 'wait' | 'bite' = 'idle'; let timer = 0;
+  const say = (m: string) => ($('msg').textContent = m);
+  const pick = () => { let r = Math.random() * FISH.reduce((s, f) => s + f.w, 0); for (const f of FISH) { if ((r -= f.w) < 0) return f; } return FISH[0]; };
+  const draw = () => {
+    const sum = bucket.reduce((s, id) => s + (FISH.find((f) => f.id === id)?.p ?? 0), 0);
+    $('bucket').innerHTML = bucket.length ? bucket.map((id) => { const f = FISH.find((x) => x.id === id)!; return `<span title="${f.n} ${f.p}코인">${f.e}</span>`; }).join('') : '<span class="none">아직 비어 있어요</span>';
+    $('bucket-sum').textContent = `${bucket.length}마리 · ${sum}코인어치`;
+    $('dex').innerHTML = FISH.map((f) => dex[f.id] ? `<div class="card"><b>${f.e}</b>${f.n}<small>${dex[f.id]}마리 · ${f.p}🪙</small></div>` : `<div class="card no"><b>❔</b>???<small>미발견</small></div>`).join('');
+    $('dex-count').textContent = `${Object.keys(dex).length}/${FISH.length}`;
+    ($('sell') as HTMLButtonElement).disabled = !bucket.length;
+  };
+  const castBtn = $('cast') as HTMLButtonElement;
+  const reset = () => { state = 'idle'; clearTimeout(timer); $('bob').hidden = true; $('alert').hidden = true; $('bob').classList.remove('shake'); castBtn.textContent = '🎣 던지기'; };
+  castBtn.addEventListener('click', () => {
+    if (state === 'idle') {
+      state = 'wait'; $('bob').hidden = false; castBtn.textContent = '⬆ 낚아올리기'; say('기다리는 중… 🌊');
+      timer = window.setTimeout(() => {
+        state = 'bite'; $('alert').hidden = false; $('bob').classList.add('shake'); say('❗ 지금이야!');
+        timer = window.setTimeout(() => { reset(); say('놓쳤어요… 😢 다시 던져볼까요?'); }, 900);
+      }, 1500 + Math.random() * 3500);
+    } else if (state === 'wait') { reset(); say('너무 빨랐어요! 물고기가 도망갔어요 💦'); }
+    else { const f = pick(); reset(); bucket.push(f.id); dex[f.id] = (dex[f.id] ?? 0) + 1; save('fish.bucket', bucket); save('fish.dex', dex); say(`${f.e} ${f.n}을(를) 낚았어요!${f.p >= 30 ? ' ✨대박✨' : ''}`); draw(); }
+  });
+  $('sell').addEventListener('click', () => {
+    const sum = bucket.reduce((s, id) => s + (FISH.find((f) => f.id === id)?.p ?? 0), 0);
+    addCoins(sum); bucket = []; save('fish.bucket', bucket); say(`모두 팔아서 ${sum}코인을 벌었어요 💰`); draw();
+  });
+  draw();
+</script>
+<style>
+  .pond { border: 3px solid #3a3a3a; border-radius: 12px; overflow: hidden; height: 200px; display: grid; grid-template-rows: 60px 1fr; }
+  .sky { background: linear-gradient(#fdeef3, #fff); display: flex; justify-content: space-around; align-items: center; font-size: 22px; }
+  .water { position: relative; background: repeating-linear-gradient(170deg, #cfe3ef 0 14px, #bcd6e6 14px 28px); overflow: hidden; }
+  .bob { position: absolute; left: 48%; top: 24px; font-size: 20px; }
+  .bob.shake { animation: shake 0.12s linear infinite; }
+  .alert { position: absolute; left: calc(48% + 6px); top: -2px; font-size: 22px; animation: pop 0.3s; }
+  .f { position: absolute; font-size: 22px; opacity: 0.45; animation: swim 9s linear infinite; }
+  .f1 { top: 70px; } .f2 { top: 100px; animation-duration: 13s; animation-direction: reverse; }
+  @keyframes swim { from { left: -10%; } to { left: 110%; } }
+  @keyframes shake { 50% { transform: translateY(5px) rotate(8deg); } }
+  @keyframes pop { from { transform: scale(0); } }
+  .msg { font: 400 19px var(--hand); text-align: center; min-height: 1.5em; margin: 10px 0; }
+  .acts { display: flex; gap: 8px; justify-content: center; }
+  h3 { font: 400 13px var(--pixel); color: var(--pink-deep); margin: 18px 0 6px; }
+  h3 small { color: var(--mute); }
+  .bucket { min-height: 34px; border: 1.5px dashed var(--line); border-radius: 8px; padding: 4px 8px; font-size: 22px; display: flex; flex-wrap: wrap; gap: 2px; }
+  .bucket :global(.none) { font-size: 12px; color: var(--mute); align-self: center; }
+  .dex { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+  .dex :global(.card) { border: 1.5px solid var(--pink); border-radius: 8px; padding: 6px; text-align: center; font-size: 12px; background: var(--pink-soft); display: flex; flex-direction: column; }
+  .dex :global(.card b) { font-size: 26px; font-weight: 400; }
+  .dex :global(.card small) { font: 10px var(--pixel); color: var(--mute); }
+  .dex :global(.card.no) { background: #f6f6f6; border-color: var(--line); color: var(--mute); }
+  @media (prefers-reduced-motion: reduce) { .f { animation: none; } }
+</style>

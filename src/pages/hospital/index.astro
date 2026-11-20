@@ -1,0 +1,54 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import Box from '../../components/Box.astro';
+import { getHospital, isoDate, won } from '../../lib/utils';
+const visits = await getHospital();
+const nexts = visits.filter((v) => v.data.next).map((v) => ({ name: v.data.name, dept: v.data.department, date: isoDate(v.data.next!) })).sort((a, b) => a.date.localeCompare(b.date));
+const year = new Date().getFullYear();
+const thisYear = visits.filter((v) => v.data.date.getUTCFullYear() === year);
+---
+<Base title="HOSPITAL · 병원" description="병원 방문 기록">
+  <meta slot="head" name="robots" content="noindex" />
+  <PageHead en="HOSPITAL" ko="병원" desc="병원 방문 기록과 다음 예약." />
+  <div class="sumbar">
+    <div class="hl"><small>{year}년 방문</small><b>{thisYear.length}번</b></div>
+    <div><small>{year}년 진료비</small><b>{won(thisYear.reduce((s, v) => s + (v.data.cost ?? 0), 0))}</b></div>
+  </div>
+  <Box title="NEXT VISIT" sub="다음 방문 예정">
+    <div class="next" data-next={JSON.stringify(nexts)}></div>
+  </Box>
+  <Box title="VISITS" sub="방문 기록">
+    <div class="visits">{visits.map((v) => (
+      <article>
+        <header><b>🏥 {v.data.name}</b>{v.data.department && <span class="dept">{v.data.department}</span>}<time>{isoDate(v.data.date)}</time></header>
+        <dl>
+          {v.data.reason && <><dt>이유</dt><dd>{v.data.reason}</dd></>}
+          {v.data.result && <><dt>진료</dt><dd>{v.data.result}</dd></>}
+          {v.data.cost != null && <><dt>비용</dt><dd>{won(v.data.cost)}</dd></>}
+          {v.data.next && <><dt>다음</dt><dd>{isoDate(v.data.next)}</dd></>}
+        </dl>
+      </article>
+    ))}</div>
+  </Box>
+</Base>
+<script>
+  import { daysUntil, dLabel, esc } from '../../lib/client';
+  const el = document.querySelector<HTMLElement>('.next')!;
+  const list: { name: string; dept?: string; date: string }[] = JSON.parse(el.dataset.next || '[]');
+  const up = list.filter((n) => daysUntil(n.date) >= 0);
+  el.innerHTML = up.length ? up.map((n) => `<div class="nx"><span>${esc(n.name)} <small>${esc(n.dept ?? '')}</small><br><small>${n.date.replaceAll('-', '.')}</small></span><em>${dLabel(n.date)}</em></div>`).join('') : '<p class="empty">예정된 방문이 없어요</p>';
+</script>
+<style>
+  .next :global(.nx) { display: flex; justify-content: space-between; align-items: center; background: var(--pink-soft); border: 1.5px solid var(--pink); border-radius: 8px; padding: 6px 12px; margin-bottom: 6px; font-size: 13px; }
+  .next :global(small) { color: var(--mute); font-size: 11px; }
+  .next :global(em) { font: normal 18px var(--pixel); color: var(--pink-deep); }
+  .visits { display: grid; gap: 8px; }
+  article { border: 1.5px solid var(--line); border-radius: 8px; padding: 8px 12px; background: #fff; }
+  header { display: flex; gap: 8px; align-items: baseline; }
+  header time { margin-left: auto; font: 11px var(--pixel); color: var(--mute); }
+  .dept { font: 10px var(--pixel); background: #3a3a3a; color: #fff; border-radius: 3px; padding: 0 6px; }
+  dl { display: grid; grid-template-columns: 40px 1fr; gap: 2px 8px; margin: 6px 0 0; font-size: 12.5px; }
+  dt { color: var(--pink-deep); font: 11px var(--pixel); }
+  dd { margin: 0; }
+</style>

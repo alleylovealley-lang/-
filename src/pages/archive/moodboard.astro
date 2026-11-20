@@ -1,0 +1,94 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import Box from '../../components/Box.astro';
+import { url, getMoodboards, isoDate } from '../../lib/utils';
+const boards = await getMoodboards();
+---
+<Base title="MOODBOARD · 무드보드" description="작업할 때 쓰는 자유 무드보드">
+  <PageHead en="MOODBOARD" ko="무드보드" desc="작업 전에 분위기를 모아보는 보드." tabs={[{ label: '자유 무드보드', href: '#free' }, { label: '저장된 보드', href: '#saved' }]} />
+
+  <Box title="FREE BOARD" sub="자유 무드보드 · 끌어서 배치, 더블클릭하면 삭제" id="free">
+    <div class="tools">
+      <input type="url" placeholder="이미지 주소 붙여넣기 (https://...)" aria-label="이미지 주소" data-in="img" />
+      <button type="button" class="pbtn" data-add="img">🖼 이미지</button>
+      <input type="color" value="#f3a5bf" aria-label="색" data-in="color" />
+      <button type="button" class="pbtn" data-add="color">🎨 색</button>
+      <input type="text" placeholder="메모·키워드" aria-label="메모" data-in="note" />
+      <button type="button" class="pbtn" data-add="note">📝 메모</button>
+      <button type="button" class="pbtn" data-clear>🗑 비우기</button>
+    </div>
+    <div class="canvas" aria-label="자유 무드보드"><p class="hint">위에서 이미지·색·메모를 추가해 보세요 ✧</p></div>
+    <p class="muted small">이 보드는 이 브라우저에 자동 저장돼요.</p>
+  </Box>
+
+  <Box title="SAVED BOARDS" sub="저장된 무드보드" id="saved">
+    {boards.map((b) => (
+      <article class="board">
+        <header><b>{b.data.title}</b><time>{isoDate(b.data.date)}</time></header>
+        <div class="collage">{b.data.images.map((src) => <img src={url(src)} alt="" loading="lazy" />)}</div>
+        {b.data.colors.length > 0 && <div class="sw">{b.data.colors.map((c) => <span style={`background:${c}`} title={c}><small>{c}</small></span>)}</div>}
+        {b.data.words.length > 0 && <div class="words">{b.data.words.map((w) => <span>#{w}</span>)}</div>}
+        {b.data.memo && <p class="memo">{b.data.memo}</p>}
+      </article>
+    ))}
+  </Box>
+</Base>
+<script>
+  import { load, save } from '../../lib/client';
+  type Item = { id: number; t: 'img' | 'color' | 'note'; v: string; x: number; y: number };
+  const canvas = document.querySelector<HTMLElement>('.canvas')!;
+  let items = load<Item[]>('moodboard', []);
+  const draw = () => {
+    canvas.querySelectorAll('.it').forEach((n) => n.remove());
+    canvas.querySelector<HTMLElement>('.hint')!.hidden = items.length > 0;
+    for (const it of items) {
+      const el = document.createElement('div');
+      el.className = `it ${it.t}`; el.style.left = it.x + 'px'; el.style.top = it.y + 'px'; el.dataset.id = String(it.id);
+      if (it.t === 'img') { const im = document.createElement('img'); im.src = it.v; im.alt = ''; im.draggable = false; el.append(im); }
+      else if (it.t === 'color') { el.style.background = it.v; el.textContent = it.v; }
+      else el.textContent = it.v;
+      el.addEventListener('dblclick', () => { items = items.filter((x) => x.id !== it.id); save('moodboard', items); draw(); });
+      el.addEventListener('pointerdown', (e) => {
+        e.preventDefault(); el.setPointerCapture(e.pointerId);
+        const sx = e.clientX - it.x, sy = e.clientY - it.y;
+        const move = (m: PointerEvent) => { it.x = Math.max(0, Math.min(canvas.clientWidth - 40, m.clientX - sx)); it.y = Math.max(0, Math.min(canvas.clientHeight - 30, m.clientY - sy)); el.style.left = it.x + 'px'; el.style.top = it.y + 'px'; };
+        const up = () => { el.removeEventListener('pointermove', move); save('moodboard', items); };
+        el.addEventListener('pointermove', move); el.addEventListener('pointerup', up, { once: true });
+      });
+      canvas.append(el);
+    }
+  };
+  const val = (k: string) => document.querySelector<HTMLInputElement>(`[data-in="${k}"]`)!;
+  document.querySelectorAll<HTMLButtonElement>('[data-add]').forEach((b) => b.addEventListener('click', () => {
+    const t = b.dataset.add as Item['t']; const inp = val(t); const v = inp.value.trim();
+    if (!v || (t === 'img' && !/^https?:\/\//.test(v))) { inp.focus(); return; }
+    items.push({ id: Date.now(), t, v, x: 20 + Math.random() * Math.max(0, canvas.clientWidth - 200), y: 20 + Math.random() * 180 });
+    if (t !== 'color') inp.value = '';
+    save('moodboard', items); draw();
+  }));
+  document.querySelector('[data-clear]')!.addEventListener('click', () => { if (confirm('자유 무드보드를 비울까요?')) { items = []; save('moodboard', items); draw(); } });
+  draw();
+</script>
+<style>
+  .tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .tools input[type='url'], .tools input[type='text'] { flex: 1 1 160px; border: 1.5px solid var(--line); border-radius: 6px; padding: 4px 8px; font: inherit; font-size: 12.5px; }
+  .tools input[type='color'] { width: 34px; height: 28px; border: 1.5px solid var(--line); border-radius: 6px; padding: 0; background: #fff; }
+  .canvas { position: relative; height: 380px; border: 2px dashed var(--pink); border-radius: 10px; background: #fff radial-gradient(#eee 1px, transparent 1.5px) 0 0 / 16px 16px; overflow: hidden; touch-action: none; }
+  .hint { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--mute); font-size: 13px; }
+  .canvas :global(.it) { position: absolute; cursor: grab; user-select: none; box-shadow: 2px 3px 8px rgba(0,0,0,.12); }
+  .canvas :global(.it.img img) { display: block; max-width: 180px; max-height: 160px; border: 5px solid #fff; }
+  .canvas :global(.it.color) { width: 70px; height: 70px; border-radius: 50%; display: grid; place-items: center; font: 9px var(--pixel); color: #fff; text-shadow: 0 0 2px #0006; }
+  .canvas :global(.it.note) { background: #fffdf4; border: 1.5px solid #e9e4cf; padding: 6px 10px; font: 400 17px var(--hand); max-width: 200px; }
+  .board { border: 1.5px solid var(--line); border-radius: 10px; padding: 10px; background: #fff; margin-bottom: 12px; }
+  .board header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+  .board time { font: 11px var(--pixel); color: var(--mute); }
+  .collage { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
+  .collage img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; display: block; }
+  .sw { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .sw span { width: 56px; height: 40px; border-radius: 6px; border: 1px solid #ddd; display: flex; align-items: flex-end; justify-content: center; }
+  .sw small { font: 8px var(--pixel); background: #fffc; padding: 0 2px; }
+  .words { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .words span { font: 11px var(--pixel); color: var(--pink-deep); }
+  .memo { margin: 6px 0 0; font-size: 12.5px; color: #666; }
+</style>

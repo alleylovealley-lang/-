@@ -5,16 +5,27 @@ import Box from '../../components/Box.astro';
 import { url, getPhotos, isoDate, md } from '../../lib/utils';
 const photos = await getPhotos();
 const byMonth = Map.groupBy(photos, (p) => isoDate(p.data.date).slice(0, 7));
-const memories = photos.filter((p) => p.data.memory);
+const albums = [...Map.groupBy(photos, (p) => p.data.album)];
 ---
 <Base title="PHOTO · 사진" description="사진과 일상의 순간을 보관하는 공간">
-  <PageHead en="PHOTO" ko="사진" desc="사진과 일상의 순간을 보관하는 공간."
-    tabs={[{ label: 'LITTLE MOMENTS', href: '#moments' }, { label: '날짜별 사진', href: '#by-date' }, { label: '추억 기록', href: '#memories' }]} />
+  <PageHead en="PHOTO" ko="사진" desc="앨범별로 사진을 보관하는 공간."
+    tabs={[{ label: '최근 사진', href: '#moments' }, { label: '앨범', href: '#albums' }, { label: '날짜별', href: '#by-date' }]} />
 
-  <Box title="LITTLE MOMENTS" sub="일상의 순간" id="moments">
+  <Box title="RECENT" sub="최근 사진" id="moments">
     <div class="strip">{photos.slice(0, 4).map((p, i) => (
       <a class="pol" href={url(p.data.image)} style={`--r:${[-3, 2, -1, 3][i % 4]}deg`}><img src={url(p.data.image)} alt={p.data.caption ?? ''} loading="lazy" /><span>{p.data.caption}</span></a>
     ))}</div>
+  </Box>
+
+  <Box title="ALBUMS" sub="앨범" id="albums">
+    <div class="albums">{albums.map(([a, xs]) => (
+      <a class="alb" href={`#album-${a}`}><span class="stack">{xs.slice(0, 3).map((p) => <img src={url(p.data.image)} alt="" loading="lazy" />)}</span><b>{a}</b><small>{xs.length}장</small></a>
+    ))}</div>
+    {albums.map(([a, xs]) => (
+      <div class="month" id={`album-${a}`}><h3>📁 {a}</h3><div class="grid">{xs.map((p) => (
+        <a href={url(p.data.image)} class="cell"><img src={url(p.data.image)} alt={p.data.caption ?? ''} loading="lazy" /><span>{md(p.data.date)} {p.data.caption}</span></a>
+      ))}</div></div>
+    ))}
   </Box>
 
   <Box title="날짜별 사진" sub="BY DATE" id="by-date">
@@ -22,17 +33,12 @@ const memories = photos.filter((p) => p.data.memory);
       <div class="month">
         <h3>{month.replace('-', '. ')}</h3>
         <div class="grid">{items.map((p) => (
-          <a href={url(p.data.image)} class="cell"><img src={url(p.data.image)} alt={p.data.caption ?? ''} loading="lazy" /><span>{md(p.data.date)} {p.data.caption}</span>{p.data.memory && <i title="추억">♥</i>}</a>
+          <a href={url(p.data.image)} class="cell"><img src={url(p.data.image)} alt={p.data.caption ?? ''} loading="lazy" /><span>{md(p.data.date)} {p.data.caption}</span></a>
         ))}</div>
       </div>
     ))}
   </Box>
 
-  <Box title="추억 기록" sub="MEMORIES" id="memories">
-    <div class="grid">{memories.map((p) => (
-      <a href={url(p.data.image)} class="cell"><img src={url(p.data.image)} alt={p.data.caption ?? ''} loading="lazy" /><span>{isoDate(p.data.date).replaceAll('-', '.')} {p.data.caption}</span></a>
-    ))}</div>
-  </Box>
 </Base>
 <style>
   .strip { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; padding: 6px 0 10px; }
@@ -45,4 +51,11 @@ const memories = photos.filter((p) => p.data.memory);
   .cell img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; border: 1.5px solid var(--line); display: block; }
   .cell:hover img { border-color: var(--pink); }
   .cell i { position: absolute; top: 6px; right: 8px; color: var(--pink-deep); font-style: normal; text-shadow: 0 0 3px #fff; }
+  .albums { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 8px; }
+  .alb { display: flex; flex-direction: column; align-items: center; text-decoration: none; font-size: 12.5px; }
+  .stack { position: relative; width: 110px; height: 90px; }
+  .stack img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 4px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,.15); border-radius: 4px; }
+  .stack img:nth-child(1) { transform: rotate(-6deg); } .stack img:nth-child(2) { transform: rotate(4deg); }
+  .alb small { font: 10px var(--pixel); color: var(--mute); }
+  .month { scroll-margin-top: 20px; }
 </style>

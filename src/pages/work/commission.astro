@@ -1,0 +1,62 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import Box from '../../components/Box.astro';
+import { getCommissions, isoDate, won } from '../../lib/utils';
+const all = await getCommissions();
+const ST = { inquiry: '문의', progress: '진행 중', done: '완료', canceled: '취소' } as const;
+const by = (s: keyof typeof ST) => all.filter((c) => c.data.status === s).sort((a, b) => +(a.data.deadline ?? 0) - +(b.data.deadline ?? 0));
+const y = new Date().getFullYear();
+const earned = all.filter((c) => c.data.paid && (c.data.deadline ?? c.data.received)?.getUTCFullYear() === y).reduce((s, c) => s + (c.data.fee ?? 0), 0);
+const pending = all.filter((c) => !c.data.paid && c.data.status !== 'canceled').reduce((s, c) => s + (c.data.fee ?? 0), 0);
+---
+<Base title="COMMISSION · 커미션" description="의뢰, 진행 상황, 마감일, 작업 수입">
+  <meta slot="head" name="robots" content="noindex" />
+  <PageHead en="COMMISSION" ko="커미션" desc="의뢰 관리: 진행 상황, 마감일, 작업 수입." />
+  <div class="sumbar">
+    <div class="hl"><small>진행 중</small><b>{by('progress').length}건</b></div>
+    <div><small>문의</small><b>{by('inquiry').length}건</b></div>
+    <div><small>{y}년 받은 작업비</small><b>{won(earned)}</b></div>
+    <div><small>받을 작업비</small><b>{won(pending)}</b></div>
+  </div>
+  {(['progress', 'inquiry', 'done', 'canceled'] as const).filter((s) => by(s).length).map((s) => (
+    <Box title={ST[s]} sub={s.toUpperCase()}>
+      <div class="cards">{by(s).map((c) => (
+        <article class={s}>
+          <header><b>{c.data.title}</b>{c.data.client && <span class="cl">♥ {c.data.client}</span>}</header>
+          {c.data.progress != null && <div class="pg" title={`${c.data.progress}%`}><i style={`width:${c.data.progress}%`}></i><span>{c.data.progress}%</span></div>}
+          <dl>
+            {c.data.received && <><dt>의뢰</dt><dd>{isoDate(c.data.received)}</dd></>}
+            {c.data.deadline && <><dt>마감</dt><dd>{isoDate(c.data.deadline)} {s !== 'done' && s !== 'canceled' && <em data-due={isoDate(c.data.deadline)}></em>}</dd></>}
+            {c.data.fee != null && <><dt>작업비</dt><dd>{won(c.data.fee)} {c.data.paid ? <span class="paid">입금 완료</span> : <span class="unpaid">미입금</span>}</dd></>}
+          </dl>
+          {c.data.memo && <p class="memo">{c.data.memo}</p>}
+        </article>
+      ))}</div>
+    </Box>
+  ))}
+</Base>
+<script>
+  import { dLabel, daysUntil } from '../../lib/client';
+  document.querySelectorAll<HTMLElement>('[data-due]').forEach((el) => { const d = el.dataset.due!; el.textContent = dLabel(d); if (daysUntil(d) <= 7) el.classList.add('soon'); });
+</script>
+<style>
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+  article { border: 1.5px solid var(--line); border-radius: 8px; padding: 10px 12px; background: #fff; font-size: 12.5px; }
+  article.progress { border-color: var(--pink); }
+  article.canceled { opacity: 0.6; }
+  header { display: flex; flex-direction: column; }
+  header b { font-size: 14px; }
+  .cl { font: 11px var(--pixel); color: var(--pink-deep); }
+  .pg { position: relative; height: 14px; border: 1.5px solid #555; border-radius: 3px; margin: 8px 0 4px; background: #fff; overflow: hidden; }
+  .pg i { display: block; height: 100%; background: repeating-linear-gradient(90deg, var(--pink) 0 6px, var(--pink-deep) 6px 8px); }
+  .pg span { position: absolute; right: 4px; top: -1px; font: 10px var(--pixel); color: var(--ink); }
+  dl { display: grid; grid-template-columns: 44px 1fr; gap: 2px 6px; margin: 6px 0 0; }
+  dt { font: 11px var(--pixel); color: var(--mute); }
+  dd { margin: 0; }
+  em { font: normal 11px var(--pixel); color: var(--mute); }
+  em.soon { color: var(--pink-deep); }
+  .paid, .unpaid { font: 10px var(--pixel); padding: 0 5px; border-radius: 3px; }
+  .paid { background: #3a3a3a; color: #fff; } .unpaid { background: var(--pink-soft); color: var(--pink-deep); }
+  .memo { margin: 6px 0 0; color: #777; }
+</style>

@@ -3,46 +3,36 @@ import Base from '../../layouts/Base.astro';
 import PageHead from '../../components/PageHead.astro';
 import Box from '../../components/Box.astro';
 import Calendar from '../../components/Calendar.astro';
-import { scheduleJson } from '../../lib/utils';
+import { url, scheduleJson } from '../../lib/utils';
 const events = await scheduleJson();
 ---
-<Base title="SCHEDULE · 일정" description="시간과 날짜에 맞춰 계획을 기록하는 공간">
-  <PageHead en="SCHEDULE" ko="일정" desc="시간과 날짜에 맞춰 계획을 기록하는 공간." />
-
+<Base title="SCHEDULE · 일정" description="일정 및 캘린더">
+  <PageHead en="SCHEDULE" ko="일정" desc="일정과 캘린더. 마감일이 있는 할 일(TODO)도 함께 보여요." />
   <div class="sch" data-events={JSON.stringify(events)}>
     <div class="cols">
-      <Box title="TODAY · SCHEDULE" sub="오늘의 일정" id="today"><div data-role="today"></div></Box>
-      <Box title="D-DAY" sub="다가오는 날" id="dday"><div data-role="dday"></div></Box>
+      <Box title="TODAY" sub="오늘의 일정"><div data-role="today"></div></Box>
+      <Box title="D-DAY" sub="다가오는 날"><div data-role="dday"></div></Box>
     </div>
-    <Box title="월간 캘린더" sub="MONTHLY" id="calendar"><Calendar big /></Box>
-    <div class="cols">
-      <Box title="PERSONAL" sub="개인 일정" id="personal"><div data-role="personal"></div></Box>
-      <Box title="REMINDER" sub="알림·해야 할 일" id="reminder"><div data-role="reminder"></div></Box>
-    </div>
+    <Box title="CALENDAR" sub="월간 캘린더"><Calendar big /></Box>
+    <Box title="UPCOMING" sub="다가오는 일정"><div data-role="upcoming"></div></Box>
+    <p class="muted small">✔ 할 일은 <a href={url('/todo')}>TODO</a>에서 관리해요.</p>
   </div>
 </Base>
-
 <script>
-  type Ev = { date: string; title: string; time?: string; type: string; dday: boolean; done: boolean; points: number; memo?: string };
-  const esc = (s = '') => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const now = new Date();
-  const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-  const diff = (d: string) => Math.round((Date.parse(d) - Date.parse(today)) / 86400000);
-  const dlabel = (d: string) => { const n = diff(d); return n === 0 ? 'D-DAY' : n > 0 ? `D-${n}` : `D+${-n}`; };
+  import { todayKey, daysUntil, dLabel, esc } from '../../lib/client';
+  type Ev = { date: string; title: string; time?: string; type: string; dday: boolean; done: boolean; memo?: string };
   const root = document.querySelector<HTMLElement>('.sch')!;
   const evs: Ev[] = JSON.parse(root.dataset.events || '[]');
-  const set = (role: string, html: string, empty: string) => (root.querySelector(`[data-role="${role}"]`)!.innerHTML = html || `<p class="empty">${empty}</p>`);
+  const today = todayKey();
+  const set = (role: string, html: string, empty: string) => (root.querySelector(`[data-role="${role}"]`)!.innerHTML = html ? html : `<p class="empty">${empty}</p>`);
   const row = (e: Ev, showDate = true) => `<li class="${e.done ? 'done' : ''}">
-    <span class="t">${e.type === 'reminder' ? (e.done ? '☑' : '☐') : '•'} ${e.time ? `<b>${e.time}</b> ` : ''}${esc(e.title)}${e.memo ? `<small> — ${esc(e.memo)}</small>` : ''}</span>
-    ${showDate ? `<span class="d">${e.date.slice(5).replace('-', '.')} · ${dlabel(e.date)}</span>` : ''}${e.type === 'reminder' ? `<span class="pt">+${e.points}pt</span>` : ''}</li>`;
-  set('today', `<ul class="ev">${evs.filter((e) => e.date === today).map((e) => row(e, false)).join('')}</ul>`.replace('<ul class="ev"></ul>', ''), '오늘은 일정이 없어요 ☁');
-  set('dday', evs.filter((e) => e.dday && diff(e.date) >= 0).map((e) => `<div class="dd"><span>${esc(e.title)}<small>${e.date.replaceAll('-', '.')}</small></span><em>${dlabel(e.date)}</em></div>`).join(''), 'D-Day로 표시한 일정이 없어요');
-  set('personal', `<ul class="ev">${evs.filter((e) => e.type === 'personal' && diff(e.date) >= 0).map((e) => row(e)).join('')}</ul>`.replace('<ul class="ev"></ul>', ''), '다가오는 개인 일정이 없어요');
-  const rem = evs.filter((e) => e.type === 'reminder').sort((a, b) => Number(a.done) - Number(b.done) || a.date.localeCompare(b.date));
-  set('reminder', `<ul class="ev">${rem.map((e) => row(e)).join('')}</ul>`.replace('<ul class="ev"></ul>', ''), '할 일이 없어요');
+    <span class="t">${e.type === 'todo' ? (e.done ? '☑' : '☐') : '•'} ${e.time ? `<b>${e.time}</b> ` : ''}${esc(e.title)}${e.memo ? `<small> — ${esc(e.memo)}</small>` : ''}</span>
+    ${showDate ? `<span class="d">${e.date.slice(5).replace('-', '.')} · ${dLabel(e.date)}</span>` : ''}</li>`;
+  const list = (arr: Ev[], showDate = true) => (arr.length ? `<ul class="ev">${arr.map((e) => row(e, showDate)).join('')}</ul>` : '');
+  set('today', list(evs.filter((e) => e.date === today), false), '오늘은 일정이 없어요 ☁');
+  set('dday', evs.filter((e) => e.dday && daysUntil(e.date) >= 0).map((e) => `<div class="dd"><span>${esc(e.title)}<small>${e.date.replaceAll('-', '.')}</small></span><em>${dLabel(e.date)}</em></div>`).join(''), 'D-Day로 표시한 일정이 없어요');
+  set('upcoming', list(evs.filter((e) => e.type === 'personal' && daysUntil(e.date) > 0)), '다가오는 일정이 없어요');
 </script>
-
 <style>
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   .sch :global(.ev) { list-style: none; margin: 0; padding: 0; font-size: 13px; }
@@ -50,11 +40,9 @@ const events = await scheduleJson();
   .sch :global(.ev li.done .t) { color: var(--mute); text-decoration: line-through; }
   .sch :global(.ev b) { font: 400 11px var(--pixel); color: var(--pink-deep); }
   .sch :global(.ev small) { color: var(--mute); }
-  .sch :global(.ev .d), .sch :global(.ev .pt) { font: 11px var(--pixel); color: var(--mute); }
-  .sch :global(.ev .pt) { color: var(--pink-deep); }
+  .sch :global(.ev .d) { font: 11px var(--pixel); color: var(--mute); }
   .sch :global(.dd) { display: flex; justify-content: space-between; align-items: center; background: var(--pink-soft); border: 1.5px solid var(--pink); border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; }
   .sch :global(.dd small) { display: block; color: var(--mute); font: 10px var(--pixel); }
   .sch :global(.dd em) { font: normal 18px var(--pixel); color: var(--pink-deep); }
-  .sch :global(.empty) { color: var(--mute); font-size: 12px; text-align: center; margin: 8px 0; }
   @media (max-width: 860px) { .cols { grid-template-columns: 1fr; gap: 0; } }
 </style>

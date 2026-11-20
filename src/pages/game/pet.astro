@@ -1,0 +1,85 @@
+---
+import Base from '../../layouts/Base.astro';
+import GameShell from '../../components/GameShell.astro';
+---
+<Base title="PET · 다마고치">
+  <GameShell en="PET" ko="다마고치" desc="밥을 주고, 놀아주고, 씻겨주면서 나만의 펫을 키워요. 시간이 지나면 배가 고파져요!">
+    <div class="pet">
+      <div class="screen">
+        <div class="name"><span data-name>콩이</span> <button type="button" class="mini" data-rename title="이름 바꾸기">✎</button></div>
+        <div class="stage"><span class="mood" data-mood>😊</span><span class="body" data-body>🥚</span><span class="poop" data-poop></span></div>
+        <div class="age" data-age></div>
+        <p class="msg" data-msg aria-live="polite">안녕! 나를 잘 부탁해 ♡</p>
+      </div>
+      <div class="stats">
+        <label>🍚 배부름 <meter min="0" max="100" low="30" high="70" optimum="100" data-stat="hunger"></meter></label>
+        <label>💗 행복 <meter min="0" max="100" low="30" high="70" optimum="100" data-stat="happy"></meter></label>
+        <label>🫧 청결 <meter min="0" max="100" low="30" high="70" optimum="100" data-stat="clean"></meter></label>
+      </div>
+      <div class="acts">
+        <button type="button" class="pbtn" data-act="feed">🍚 밥 주기 <small>5🪙</small></button>
+        <button type="button" class="pbtn" data-act="snack">🍰 간식 <small>10🪙</small></button>
+        <button type="button" class="pbtn" data-act="play">🎾 놀아주기</button>
+        <button type="button" class="pbtn" data-act="wash">🫧 씻기기</button>
+        <button type="button" class="pbtn" data-act="pet">🤚 쓰다듬기</button>
+      </div>
+    </div>
+  </GameShell>
+</Base>
+<script>
+  import { load, save, getCoins, addCoins } from '../../lib/client';
+  type Pet = { name: string; born: number; last: number; hunger: number; happy: number; clean: number };
+  const $ = (s: string) => document.querySelector<HTMLElement>(`[data-${s}]`)!;
+  const H = 3600_000;
+  let pet = load<Pet | null>('pet', null) ?? { name: '콩이', born: Date.now(), last: Date.now(), hunger: 80, happy: 80, clean: 80 };
+  const clamp = (n: number) => Math.max(0, Math.min(100, n));
+  // 마지막으로 본 뒤 지난 시간만큼 줄어들기
+  const decay = () => {
+    const h = (Date.now() - pet.last) / H;
+    pet.hunger = clamp(pet.hunger - h * 6); pet.happy = clamp(pet.happy - h * 4); pet.clean = clamp(pet.clean - h * 3); pet.last = Date.now();
+  };
+  const say = (m: string) => ($('msg').textContent = m);
+  const stage = () => { const h = (Date.now() - pet.born) / H; return h < 0.05 ? ['🥚', '알'] : h < 24 ? ['🐣', '아기'] : h < 72 ? ['🐥', '어린이'] : ['🐰', '어른']; };
+  const draw = () => {
+    decay(); save('pet', pet);
+    const [emo, st] = stage(); const avg = (pet.hunger + pet.happy + pet.clean) / 3;
+    $('body').textContent = emo; $('name').textContent = pet.name;
+    $('mood').textContent = avg > 70 ? '😊' : avg > 40 ? '🙂' : avg > 15 ? '😢' : '🤒';
+    $('poop').textContent = '💩'.repeat(pet.clean < 20 ? 3 : pet.clean < 40 ? 2 : pet.clean < 60 ? 1 : 0);
+    const days = Math.floor((Date.now() - pet.born) / (24 * H));
+    $('age').textContent = `${st} · ${days + 1}일째`;
+    (['hunger', 'happy', 'clean'] as const).forEach((k) => ((document.querySelector(`[data-stat="${k}"]`) as HTMLMeterElement).value = pet[k]));
+  };
+  const bounce = () => { const b = $('body'); b.classList.remove('hop'); void b.offsetWidth; b.classList.add('hop'); };
+  const acts: Record<string, () => void> = {
+    feed: () => { if (getCoins() < 5) return say('코인이 부족해요 🥲 낚시터에서 모아올까요?'); if (pet.hunger > 95) return say('배불러요~ 🫃'); addCoins(-5); pet.hunger = clamp(pet.hunger + 30); say('냠냠! 맛있어요 🍚'); },
+    snack: () => { if (getCoins() < 10) return say('코인이 부족해요 🥲'); addCoins(-10); pet.hunger = clamp(pet.hunger + 15); pet.happy = clamp(pet.happy + 20); say('간식 최고! 🍰✨'); },
+    play: () => { if (pet.hunger < 15) return say('배고파서 못 놀겠어요… 🥺'); pet.happy = clamp(pet.happy + 20); pet.hunger = clamp(pet.hunger - 5); pet.clean = clamp(pet.clean - 5); say('신난다! 🎾'); },
+    wash: () => { pet.clean = clamp(pet.clean + 40); pet.happy = clamp(pet.happy - 3); say('뽀득뽀득 🫧'); },
+    pet: () => { pet.happy = clamp(pet.happy + 5); say(['헤헤 ♡', '기분 좋아요~', '더 해줘요!'][Math.floor(Math.random() * 3)]); },
+  };
+  document.querySelectorAll<HTMLButtonElement>('[data-act]').forEach((b) => b.addEventListener('click', () => { decay(); acts[b.dataset.act!](); bounce(); draw(); }));
+  $('rename').addEventListener('click', () => { const n = prompt('펫 이름을 지어주세요', pet.name)?.trim(); if (n) { pet.name = n.slice(0, 12); draw(); } });
+  draw(); setInterval(draw, 60_000);
+</script>
+<style>
+  .pet { display: grid; gap: 14px; }
+  .screen { border: 3px solid #3a3a3a; border-radius: 40px 40px 16px 16px; background: #eef3e6 repeating-linear-gradient(0deg, transparent 0 3px, #0000000a 3px 4px); padding: 14px; text-align: center; }
+  .name { font: 14px var(--pixel); }
+  .mini { border: none; background: none; cursor: pointer; color: var(--mute); }
+  .stage { position: relative; height: 130px; display: grid; place-items: center; }
+  .body { font-size: 76px; line-height: 1; animation: idle 2s ease-in-out infinite; }
+  .body.hop { animation: hop 0.4s ease-out; }
+  .mood { position: absolute; top: 4px; right: 30%; font-size: 26px; }
+  .poop { position: absolute; bottom: 4px; left: 12%; font-size: 20px; letter-spacing: 4px; }
+  @keyframes idle { 50% { transform: translateY(-6px); } }
+  @keyframes hop { 40% { transform: translateY(-22px) scale(1.08); } }
+  .age { font: 11px var(--pixel); color: var(--mute); }
+  .msg { margin: 6px 0 0; font: 400 18px var(--hand); min-height: 1.5em; }
+  .stats { display: grid; gap: 6px; font-size: 13px; }
+  .stats label { display: grid; grid-template-columns: 80px 1fr; align-items: center; }
+  meter { width: 100%; height: 14px; }
+  .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .acts small { font-size: 10px; color: var(--mute); }
+  @media (prefers-reduced-motion: reduce) { .body { animation: none; } }
+</style>
