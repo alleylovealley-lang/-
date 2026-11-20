@@ -1,10 +1,264 @@
 ---
 import Base from '../layouts/Base.astro';
-// 홈 가운데 칸 — 지금은 비워 둔 상태예요. 넣을 내용이 정해지면 여기에 추가해요.
+import { SITE } from '../site.config';
+import { url, scheduleJson, getHabits, getMoney } from '../lib/utils';
+
+const events = await scheduleJson();
+const habits = (await getHabits()).map((h) => ({ id: h.id, ...h.data }));
+const DEFAULT_CATS = ['식비', '카페', '교통', '생활', '쇼핑', '문화', '구독', '기타'];
+const INCOME_CATS = ['월급', '작업', '용돈', '기타'];
+const used = [...new Set((await getMoney()).map((m) => m.data.category))];
+const expenseCats = [...new Set([...DEFAULT_CATS, ...used.filter((c) => !INCOME_CATS.includes(c))])];
+const incomeCats = [...new Set([...INCOME_CATS, ...used.filter((c) => INCOME_CATS.includes(c))])];
 ---
-<Base>
-  <div class="home-empty" aria-hidden="true"></div>
+<Base bare>
+  <div class="dash" data-repo={JSON.stringify(SITE.repo)}>
+    <section class="p hero">
+      <div class="today-date"><b data-today-date></b><span data-today-day></span></div>
+      <div class="quick">
+        <button type="button" class="qbtn diary" data-open="diary"><span>✏️</span>오늘 일기 쓰기</button>
+        <button type="button" class="qbtn" data-open="expense"><span>💸</span>지출 기록</button>
+        <button type="button" class="qbtn" data-open="income"><span>💰</span>수입 기록</button>
+      </div>
+      <ul class="pending" data-pending hidden></ul>
+    </section>
+
+    <div class="two">
+      <section class="p">
+        <div class="cap">today schedule</div>
+        <div class="sched" data-events={JSON.stringify(events)}></div>
+        <a class="more" href={url('/schedule')}>일정 전체 보기 ›</a>
+      </section>
+      <section class="p">
+        <div class="cap">daily habit</div>
+        <div class="habits" data-habits={JSON.stringify(habits)}>
+          <ul data-habit-list></ul>
+          <div class="hbar"><i data-habit-bar></i></div>
+          <p class="hsum" data-habit-sum></p>
+        </div>
+        <a class="more" href={url('/habit')}>습관 기록 보기 ›</a>
+      </section>
+    </div>
+  </div>
+
+  <!-- 일기 쓰기 -->
+  <dialog class="dlg" data-dlg="diary" aria-label="일기 쓰기">
+    <form method="dialog" data-form="diary">
+      <header><b>✏️ 오늘 일기 쓰기</b><button type="button" class="x" data-close aria-label="닫기">✕</button></header>
+      <p class="notoken" data-notoken hidden>🔑 먼저 <a href={url('/etc/settings#github')}>설정 › GitHub 연결</a>을 해야 저장할 수 있어요. 쓴 내용은 임시 저장돼요.</p>
+      <label>날짜 <input type="date" name="date" required /></label>
+      <label>제목 <input type="text" name="title" required maxlength="80" placeholder="오늘의 제목" /></label>
+      <div class="row2">
+        <label>기분 <input type="text" name="mood" maxlength="20" placeholder="예: ☁ 몽글몽글" /></label>
+        <fieldset class="weather"><legend>날씨</legend>
+          {['☀️', '⛅', '☁️', '🌧️', '❄️'].map((w) => <label><input type="radio" name="weather" value={w} /><span>{w}</span></label>)}
+        </fieldset>
+      </div>
+      <label>내용 <textarea name="body" rows="9" required placeholder="오늘 있었던 일, 생각, 감정…"></textarea></label>
+      <p class="err" data-err aria-live="polite"></p>
+      <footer><button type="button" class="pbtn" data-close>취소</button><button type="submit" class="pbtn pink">💾 저장하기</button></footer>
+    </form>
+  </dialog>
+
+  <!-- 수입·지출 기록 -->
+  <dialog class="dlg" data-dlg="money" aria-label="수입·지출 기록">
+    <form method="dialog" data-form="money" data-cats={JSON.stringify({ expense: expenseCats, income: incomeCats })}>
+      <header><b data-money-title>💸 지출 기록</b><button type="button" class="x" data-close aria-label="닫기">✕</button></header>
+      <p class="notoken" data-notoken hidden>🔑 먼저 <a href={url('/etc/settings#github')}>설정 › GitHub 연결</a>을 해야 저장할 수 있어요.</p>
+      <fieldset class="type"><legend>종류</legend>
+        <label><input type="radio" name="type" value="expense" checked /><span>💸 지출</span></label>
+        <label><input type="radio" name="type" value="income" /><span>💰 수입</span></label>
+      </fieldset>
+      <div class="row2">
+        <label>날짜 <input type="date" name="date" required /></label>
+        <label>금액 (원) <input type="number" name="amount" required min="1" step="1" inputmode="numeric" placeholder="0" /></label>
+      </div>
+      <label>분류 <select name="category" data-cat-select></select></label>
+      <label>메모 <input type="text" name="memo" maxlength="60" placeholder="예: 친구랑 점심" /></label>
+      <p class="err" data-err aria-live="polite"></p>
+      <footer><button type="button" class="pbtn" data-close>취소</button><button type="submit" class="pbtn pink">💾 저장하기</button></footer>
+    </form>
+  </dialog>
+
+  <div class="toast" data-toast role="status" hidden></div>
 </Base>
+
+<script>
+  import { todayKey, load, save, esc } from '../lib/client';
+  import { getToken, createFile, yq, uid, type Repo } from '../lib/github';
+
+  const $ = <T extends HTMLElement = HTMLElement>(s: string, r: ParentNode = document) => r.querySelector<T>(s)!;
+  const repo: Repo = JSON.parse($('.dash').dataset.repo!);
+  const today = todayKey();
+  const now = new Date();
+  $('[data-today-date]').textContent = `${now.getMonth() + 1}월 ${now.getDate()}일`;
+  $('[data-today-day]').textContent = `${'일월화수목금토'[now.getDay()]}요일`;
+
+  /* ── 오늘 일정 ── */
+  type Ev = { date: string; title: string; time?: string; type: string; done: boolean; memo?: string };
+  const sched = $('.sched');
+  const evs: Ev[] = JSON.parse(sched.dataset.events || '[]');
+  const todays = evs.filter((e) => e.date === today);
+  const overdue = evs.filter((e) => e.type === 'todo' && !e.done && e.date < today);
+  const row = (e: Ev, late = false) => `<li class="${e.done ? 'done' : ''}${late ? ' late' : ''}"><span class="ic">${e.type === 'todo' ? (e.done ? '☑' : '☐') : '•'}</span>${e.time ? `<b>${e.time}</b>` : ''}<span class="t">${esc(e.title)}${e.memo ? `<small> — ${esc(e.memo)}</small>` : ''}</span>${late ? '<em>지남</em>' : ''}</li>`;
+  sched.innerHTML = todays.length || overdue.length
+    ? `<ul>${todays.map((e) => row(e)).join('')}${overdue.map((e) => row(e, true)).join('')}</ul>`
+    : '<p class="empty">오늘은 일정이 없어요 ☁</p>';
+
+  /* ── 매일 습관 (습관 페이지와 같은 기록) ── */
+  type H = { id: string; name: string; emoji: string; points: number };
+  const hbox = $('.habits');
+  const habits: H[] = JSON.parse(hbox.dataset.habits || '[]');
+  const drawHabits = () => {
+    const log = load<Record<string, string[]>>('habit', {});
+    const done = log[today] ?? [];
+    $('[data-habit-list]').innerHTML = habits.map((h) => `<li><label class="${done.includes(h.id) ? 'on' : ''}"><input type="checkbox" data-id="${h.id}" ${done.includes(h.id) ? 'checked' : ''}><span>${h.emoji}</span><span class="n">${esc(h.name)}</span></label></li>`).join('');
+    const pct = habits.length ? Math.round((done.length / habits.length) * 100) : 0;
+    $('[data-habit-bar]').style.width = pct + '%';
+    $('[data-habit-sum]').textContent = habits.length ? `${done.length}/${habits.length} 완료 · ${pct}%${pct === 100 ? ' 🎉' : ''}` : '습관이 없어요';
+    hbox.querySelectorAll<HTMLInputElement>('input').forEach((cb) => cb.addEventListener('change', () => {
+      const l = load<Record<string, string[]>>('habit', {}); const cur = new Set(l[today] ?? []);
+      cb.checked ? cur.add(cb.dataset.id!) : cur.delete(cb.dataset.id!);
+      save('habit', { ...l, [today]: [...cur] }); drawHabits();
+    }));
+  };
+  drawHabits();
+
+  /* ── 방금 저장한 기록 (사이트 반영 전까지 표시) ── */
+  type Pend = { kind: string; text: string; at: number };
+  const drawPending = () => {
+    const list = load<Pend[]>('pending', []).filter((p) => Date.now() - p.at < 15 * 60_000);
+    save('pending', list);
+    const el = $('[data-pending]'); el.hidden = !list.length;
+    el.innerHTML = list.map((p) => `<li>⏳ ${esc(p.kind)} 「${esc(p.text)}」 저장됨 · 사이트 반영 중 (1~2분)</li>`).join('');
+  };
+  drawPending();
+
+  /* ── 대화창 공통 ── */
+  const toast = (m: string) => { const t = $('[data-toast]'); t.textContent = m; t.hidden = false; clearTimeout((t as any)._h); (t as any)._h = setTimeout(() => (t.hidden = true), 4000); };
+  const dlgDiary = $<HTMLDialogElement>('[data-dlg="diary"]');
+  const dlgMoney = $<HTMLDialogElement>('[data-dlg="money"]');
+  document.querySelectorAll<HTMLElement>('[data-close]').forEach((b) => b.addEventListener('click', () => (b.closest('dialog') as HTMLDialogElement).close()));
+  const prep = (d: HTMLDialogElement) => { $('[data-notoken]', d).hidden = !!getToken(); $('[data-err]', d).textContent = ''; d.showModal(); };
+
+  /* 일기 */
+  const fd = $<HTMLFormElement>('[data-form="diary"]');
+  const draftKey = 'draft.diary';
+  const restoreDraft = () => {
+    const dr = load<Record<string, string> | null>(draftKey, null);
+    (fd.elements.namedItem('date') as HTMLInputElement).value = dr?.date || today;
+    (['title', 'mood', 'body'] as const).forEach((k) => ((fd.elements.namedItem(k) as HTMLInputElement).value = dr?.[k] ?? ''));
+    fd.querySelectorAll<HTMLInputElement>('[name="weather"]').forEach((r) => (r.checked = r.value === dr?.weather));
+  };
+  fd.addEventListener('input', () => save(draftKey, Object.fromEntries(new FormData(fd) as any)));
+  $('[data-open="diary"]').addEventListener('click', () => { restoreDraft(); prep(dlgDiary); });
+  fd.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = Object.fromEntries(new FormData(fd) as any) as Record<string, string>;
+    const err = $('[data-err]', fd);
+    if (!getToken()) { err.innerHTML = '🔑 GitHub 연결이 필요해요. 쓴 내용은 임시 저장돼 있어요.'; return; }
+    const btn = $<HTMLButtonElement>('[type="submit"]', fd); btn.disabled = true; btn.textContent = '저장 중…';
+    const fm = [`title: ${yq(f.title.trim())}`, `date: ${f.date}`, f.mood?.trim() && `mood: ${yq(f.mood.trim())}`, f.weather && `weather: ${yq(f.weather)}`].filter(Boolean).join('\n');
+    try {
+      await createFile(repo, `src/content/diary/${f.date}-${uid()}.md`, `---\n${fm}\n---\n\n${f.body.trim()}\n`, `일기: ${f.title.trim()}`);
+      save(draftKey, null); dlgDiary.close();
+      save('pending', [...load<Pend[]>('pending', []), { kind: '일기', text: f.title.trim(), at: Date.now() }]); drawPending();
+      toast('💾 일기를 저장했어요! 1~2분 뒤 DIARY에 나타나요');
+    } catch (x) { err.textContent = (x as Error).message === 'NO_TOKEN' ? '🔑 GitHub 연결이 필요해요.' : (x as Error).message; }
+    finally { btn.disabled = false; btn.textContent = '💾 저장하기'; }
+  });
+
+  /* 수입·지출 */
+  const fm2 = $<HTMLFormElement>('[data-form="money"]');
+  const cats: Record<string, string[]> = JSON.parse(fm2.dataset.cats!);
+  const setType = (t: string) => {
+    fm2.querySelectorAll<HTMLInputElement>('[name="type"]').forEach((r) => (r.checked = r.value === t));
+    $('[data-money-title]', fm2).textContent = t === 'income' ? '💰 수입 기록' : '💸 지출 기록';
+    $('[data-cat-select]', fm2).innerHTML = cats[t].map((c) => `<option>${esc(c)}</option>`).join('');
+  };
+  fm2.querySelectorAll<HTMLInputElement>('[name="type"]').forEach((r) => r.addEventListener('change', () => setType(r.value)));
+  document.querySelectorAll<HTMLElement>('[data-open="expense"], [data-open="income"]').forEach((b) => b.addEventListener('click', () => {
+    fm2.reset(); setType(b.dataset.open!); (fm2.elements.namedItem('date') as HTMLInputElement).value = today; prep(dlgMoney);
+    (fm2.elements.namedItem('amount') as HTMLInputElement).focus();
+  }));
+  fm2.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = Object.fromEntries(new FormData(fm2) as any) as Record<string, string>;
+    const err = $('[data-err]', fm2);
+    const amount = Math.round(Number(f.amount));
+    if (!(amount > 0)) { err.textContent = '금액을 확인해 주세요'; return; }
+    if (!getToken()) { err.innerHTML = '🔑 GitHub 연결이 필요해요.'; return; }
+    const btn = $<HTMLButtonElement>('[type="submit"]', fm2); btn.disabled = true; btn.textContent = '저장 중…';
+    const yaml = [`date: ${f.date}`, `type: ${f.type}`, `amount: ${amount}`, `category: ${yq(f.category)}`, f.memo?.trim() && `memo: ${yq(f.memo.trim())}`].filter(Boolean).join('\n') + '\n';
+    const label = `${f.type === 'income' ? '수입' : '지출'} ${amount.toLocaleString('ko-KR')}원`;
+    try {
+      await createFile(repo, `src/content/money/${f.date}-${uid()}.yaml`, yaml, `가계부: ${label} ${f.category}`);
+      dlgMoney.close();
+      save('pending', [...load<Pend[]>('pending', []), { kind: '가계부', text: `${label} · ${f.category}`, at: Date.now() }]); drawPending();
+      toast(`💾 ${label}을 기록했어요! 1~2분 뒤 MONEY에 나타나요`);
+    } catch (x) { err.textContent = (x as Error).message === 'NO_TOKEN' ? '🔑 GitHub 연결이 필요해요.' : (x as Error).message; }
+    finally { btn.disabled = false; btn.textContent = '💾 저장하기'; }
+  });
+</script>
+
 <style>
-  .home-empty { min-height: 60vh; }
+  .dash { display: flex; flex-direction: column; gap: 10px; }
+  .hero { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px; padding: 18px 20px; background: var(--pink-soft) linear-gradient(transparent 23px, #f7d5e1 24px) 0 0 / 100% 24px; }
+  .today-date { display: flex; flex-direction: column; }
+  .today-date b { font: 400 34px/1.1 var(--hand); }
+  .today-date span { font: 12px var(--pixel); color: var(--pink-deep); }
+  .quick { display: flex; flex-wrap: wrap; gap: 10px; margin-left: auto; }
+  .qbtn { display: flex; align-items: center; gap: 8px; padding: 10px 18px; border: 2px solid #555; border-radius: 6px; background: linear-gradient(#fff, #ececec); box-shadow: 3px 3px 0 #bbb; font: 13px var(--pixel); color: var(--ink); cursor: pointer; }
+  .qbtn span { font-size: 18px; }
+  .qbtn.diary { background: linear-gradient(#f7b8cd, #e0709a); border-color: #c75a83; color: #fff; }
+  .qbtn:hover { transform: translateY(-1px); }
+  .qbtn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #bbb; }
+  .pending { list-style: none; margin: 0; padding: 0; width: 100%; font-size: 12px; color: var(--pink-deep); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+  .two .p { min-height: 280px; display: flex; flex-direction: column; }
+  .more { margin-top: auto; padding-top: 8px; text-align: right; font-size: 11px; color: var(--mute); text-decoration: none; }
+  .sched :global(ul) { list-style: none; margin: 0; padding: 0; }
+  .sched :global(li) { display: flex; gap: 8px; align-items: baseline; padding: 7px 4px; border-bottom: 1px dashed #e6e6e6; font-size: 13.5px; }
+  .sched :global(.ic) { color: var(--pink-deep); }
+  .sched :global(b) { font: 400 12px var(--pixel); color: var(--pink-deep); }
+  .sched :global(.t) { flex: 1; }
+  .sched :global(small) { color: var(--mute); }
+  .sched :global(li.done .t) { color: var(--mute); text-decoration: line-through; }
+  .sched :global(em) { font: normal 10px var(--pixel); color: #fff; background: var(--pink-deep); border-radius: 3px; padding: 0 5px; }
+  .habits ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+  .habits :global(label) { display: flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 13px; background: #fff; }
+  .habits :global(label.on) { background: var(--pink-soft); border-color: var(--pink); }
+  .habits :global(label.on .n) { text-decoration: line-through; color: var(--mute); }
+  .habits :global(input) { accent-color: var(--pink-deep); width: 16px; height: 16px; }
+  .hbar { height: 10px; border: 1.5px solid #555; border-radius: 3px; background: #fff; margin: 10px 0 4px; overflow: hidden; }
+  .hbar i { display: block; height: 100%; width: 0; background: repeating-linear-gradient(90deg, var(--pink) 0 6px, var(--pink-deep) 6px 8px); transition: width 0.3s; }
+  .hsum { margin: 0; font: 11px var(--pixel); color: var(--mute); }
+
+  .dlg { width: min(560px, calc(100vw - 24px)); border: 3px solid #3a3a3a; border-radius: 12px; padding: 0; box-shadow: 6px 6px 0 #0003; }
+  .dlg::backdrop { background: #0005; }
+  .dlg form { display: flex; flex-direction: column; gap: 10px; padding: 0 16px 16px; }
+  .dlg header { display: flex; justify-content: space-between; align-items: center; margin: 0 -16px; padding: 8px 14px; background: linear-gradient(#5a5a5a, #3a3a3a); color: #fff; font: 13px var(--pixel); }
+  .x { border: none; background: none; color: #fff; cursor: pointer; font-size: 14px; }
+  .dlg label { display: flex; flex-direction: column; gap: 3px; font: 11px var(--pixel); color: var(--pink-deep); }
+  .dlg input[type='text'], .dlg input[type='date'], .dlg input[type='number'], .dlg select, .dlg textarea { font: 14px var(--font); color: var(--ink); border: 2px solid #c9c9c9; border-radius: 6px; padding: 6px 8px; background: #fff; }
+  .dlg input:focus, .dlg select:focus, .dlg textarea:focus { outline: none; border-color: var(--pink-deep); }
+  .dlg textarea { resize: vertical; line-height: 1.7; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  fieldset { border: none; padding: 0; margin: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+  legend { font: 11px var(--pixel); color: var(--pink-deep); margin-bottom: 3px; width: 100%; }
+  fieldset label { flex-direction: row; cursor: pointer; }
+  fieldset input { position: absolute; opacity: 0; pointer-events: none; }
+  fieldset span { display: inline-block; padding: 4px 10px; border: 2px solid #c9c9c9; border-radius: 6px; font: 13px var(--font); color: var(--ink); background: #fff; }
+  .weather span { font-size: 17px; padding: 2px 8px; }
+  fieldset input:checked + span { border-color: var(--pink-deep); background: var(--pink-soft); }
+  fieldset input:focus-visible + span { outline: 2px solid var(--pink-deep); }
+  .notoken { margin: 10px 0 0; padding: 8px 10px; border: 1.5px dashed var(--pink); border-radius: 8px; background: var(--pink-soft); font-size: 12.5px; }
+  .err { margin: 0; min-height: 1.2em; font-size: 12.5px; color: var(--pink-deep); }
+  .dlg footer { display: flex; justify-content: flex-end; gap: 8px; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; background: #3a3a3a; color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 13px; box-shadow: 0 4px 14px #0003; }
+  @media (max-width: 860px) {
+    .two, .row2 { grid-template-columns: 1fr; }
+    .quick { margin-left: 0; width: 100%; }
+    .qbtn { flex: 1 1 140px; justify-content: center; }
+  }
 </style>
