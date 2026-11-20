@@ -1,0 +1,17 @@
+---
+// 꾸미기 이미지 한 칸. src가 비어 있으면 자리표시(줄무늬)를 보여줍니다.
+import { SITE, type Deco } from '../site.config';
+import { url } from '../lib/utils';
+
+interface Props { item?: Deco; label?: string; hint?: string; class?: string; style?: string; }
+const { item, label = '', hint = '', class: cls = '', style } = Astro.props;
+const src = item?.src ? url(item.src) : '';
+const Tag = item?.href ? 'a' : 'div';
+---
+{src ? (
+  <Tag class:list={['deco', cls]} style={style} href={item?.href || undefined} rel={item?.href ? 'noopener' : undefined}>
+    <img src={src} alt={item?.alt ?? ''} loading="lazy" />
+  </Tag>
+) : SITE.showPlaceholders ? (
+  <div class:list={['deco', 'ph', cls]} style={style} aria-hidden="true"><span><b>{label}</b>{hint}</span></div>
+) : null}

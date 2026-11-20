@@ -12,6 +12,8 @@ const posts = defineCollection({
     description: z.string().optional(),
     date: z.coerce.date(),
     updated: z.coerce.date().optional(),
+    /** 썸네일 이미지 경로 (예: /images/posts/cover.jpg) */
+    cover: z.string().optional(),
     tags,
     draft: z.boolean().default(false),
   }),

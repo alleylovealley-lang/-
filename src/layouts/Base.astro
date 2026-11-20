@@ -1,14 +1,23 @@
 ---
+import '@fontsource/gowun-dodum';
+import '@fontsource/dotgothic16';
+import '@fontsource/gaegu/700.css';
 import '../styles/global.css';
-import Header from '../components/Header.astro';
-import Footer from '../components/Footer.astro';
+import Deco from '../components/Deco.astro';
+import Calendar from '../components/Calendar.astro';
 import { SITE } from '../site.config';
-import { url } from '../lib/utils';
+import { url, getNotes, STAGES } from '../lib/utils';
 
-interface Props { title?: string; description?: string; type?: 'website' | 'article'; }
-const { title, description = SITE.description, type = 'website' } = Astro.props;
+interface Props { title?: string; description?: string; type?: 'website' | 'article'; bare?: boolean; }
+const { title, description = SITE.description, type = 'website', bare = false } = Astro.props;
 const fullTitle = title ? `${title} · ${SITE.title}` : SITE.title;
 const canonical = new URL(Astro.url.pathname, Astro.site);
+const I = SITE.images;
+
+const path = Astro.url.pathname.replace(import.meta.env.BASE_URL.replace(/\/$/, ''), '') || '/';
+const active = (href: string) => (href === '/' ? path === '/' : path === href || path.startsWith(href + '/'));
+const notes = (await getNotes()).slice(0, 4);
+const year = new Date().getFullYear();
 ---
 <!doctype html>
 <html lang={SITE.lang}>
@@ -26,16 +35,82 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:site_name" content={SITE.title} />
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#141414" media="(prefers-color-scheme: dark)" />
-    <script is:inline>
-      try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
-    </script>
-    <slot name="head" />
+    <meta name="theme-color" content="#2f2f2f" />
   </head>
   <body>
-    <Header />
-    <main class="container"><slot /></main>
-    <Footer />
+    <div class="outer">
+      <div class="inner">
+        <header class="hd">
+          <a href={url('/')} class="hd-icon" aria-label="홈으로"><Deco item={I.icon} label="📷 아이콘" hint="150×150" /></a>
+          <div class="banner">
+            <Deco item={I.banner} label="🖼 헤더 배너" hint="860×150" class="banner-img" />
+            {SITE.headerTitle && <a href={url('/')} class="banner-title">{SITE.headerTitle}</a>}
+          </div>
+        </header>
+
+        <nav class="mnav" aria-label="메뉴">
+          {SITE.nav.map((n) => <a href={url(n.href)} aria-current={active(n.href) ? 'page' : undefined}>{n.label}</a>)}
+        </nav>
+
+        <aside class="side left">
+          <div class="p">
+            <Deco item={I.mascot} label="캐릭터" hint="(gif 가능)" class="mascot" />
+            <div class="me"><b>{SITE.name}</b></div>
+          </div>
+          <div class="p">
+            <div class="cap">mood</div>
+            <div class="center">{SITE.mood}</div>
+          </div>
+          {(I.sideBanner.src || SITE.showPlaceholders) && (
+            <div class="p tight"><Deco item={I.sideBanner} label="세로 배너" hint="사진·스티커" class="sidebanner" /></div>
+          )}
+          {I.friends.some((f) => f.src || SITE.showPlaceholders) && (
+            <div class="p">
+              <div class="cap">friends</div>
+              <div class="stack">{I.friends.map((f) => <Deco item={f} label="친구 버튼" hint="88×31" class="b88" />)}</div>
+            </div>
+          )}
+        </aside>
+
+        <main class:list={['main', { panel: !bare }]}>
+          <slot />
+        </main>
+
+        <aside class="side right">
+          <nav class="p nav" aria-label="메뉴">
+            <Deco item={I.navTitle} label="NAVIGATION" class="navtitle" />
+            {SITE.nav.map((n) => (
+              <a href={url(n.href)} aria-current={active(n.href) ? 'page' : undefined}>{n.label} <span aria-hidden="true">🎀</span></a>
+            ))}
+          </nav>
+          <div class="p">
+            <div class="cap">calendar</div>
+            <Calendar />
+          </div>
+          {notes.length > 0 && (
+            <div class="p">
+              <div class="cap">garden</div>
+              <ul class="mini">
+                {notes.map((n) => <li><a href={url(`/garden/${n.id}`)}>{STAGES[n.data.stage].icon} {n.data.title}</a></li>)}
+              </ul>
+            </div>
+          )}
+          {(I.myButton.src || SITE.showPlaceholders) && (
+            <div class="p">
+              <div class="cap">link me!</div>
+              <Deco item={I.myButton} label="내 버튼" hint="88×31" class="b88 centered" />
+              {I.myButton.src && (
+                <textarea class="code" readonly aria-label="내 버튼 퍼가기 코드">{`<a href="${new URL(import.meta.env.BASE_URL, Astro.site)}"><img src="${new URL(url(I.myButton.src), Astro.site)}" alt="${SITE.title}"></a>`}</textarea>
+              )}
+            </div>
+          )}
+        </aside>
+
+        <footer class="p foot">
+          <a href={url('/')}>home</a> | <a href={url('/about')}>about</a> | <a href={url('/tags')}>tags</a> | <a href={url('/rss.xml')}>rss</a>
+          <div>{SITE.name} © {SITE.startYear < year ? `${SITE.startYear}–${year}` : year} – ∞</div>
+        </footer>
+      </div>
+    </div>
   </body>
 </html>
