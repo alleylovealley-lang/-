@@ -73,16 +73,26 @@ const year = new Date().getFullYear();
 
         <aside class="side left">
           <section class="p profile" aria-label="프로필">
-            <Deco item={P.photo} label="📷 프로필 사진" hint="정사각형 · gif 가능" class="pf-photo" />
-            <div class="pf-name">{SITE.name}</div>
-            {P.status && <div class="pf-status">{P.status}</div>}
+            <div class="pf-row">
+              <Deco item={P.photo} label="📷" class="pf-photo" />
+              <div class="pf-text">
+                <div class="pf-name">{SITE.name}</div>
+                {P.status && <div class="pf-status">{P.status}</div>}
+              </div>
+            </div>
             {P.items.length > 0 && (
-              <dl class="pf-info">{P.items.map((it) => <><dt>{it.label}</dt><dd>{it.value}</dd></>)}</dl>
+              <details class="pf-more">
+                <summary>내 정보</summary>
+                <dl class="pf-info">{P.items.map((it) => <><dt>{it.label}</dt><dd>{it.value}</dd></>)}</dl>
+              </details>
             )}
           </section>
-          {(I.sideBanner.src || SITE.showPlaceholders) && (
-            <div class="p tight"><Deco item={I.sideBanner} label="세로 배너" hint="컨셉 이미지 · 190×560" class="sidebanner" /></div>
-          )}
+          <nav class="p nav" aria-label="메뉴">
+            <Deco item={I.navTitle} label="NAVIGATION" class="navtitle" />
+            <a class="home" href={url('/')} aria-current={path === '/' ? 'page' : undefined}><span aria-hidden="true">🏠</span> HOME · 홈</a>
+            <hr class="home-sep" />
+            <NavTree prefix="d" activeGroup={activeGroup} activeItem={activeItem} />
+          </nav>
         </aside>
 
         <main class:list={['main', { panel: !bare }]}>
@@ -90,12 +100,9 @@ const year = new Date().getFullYear();
         </main>
 
         <aside class="side right">
-          <nav class="p nav" aria-label="메뉴">
-            <Deco item={I.navTitle} label="NAVIGATION" class="navtitle" />
-            <a class="home" href={url('/')} aria-current={path === '/' ? 'page' : undefined}><span aria-hidden="true">🏠</span> HOME · 홈</a>
-            <hr class="home-sep" />
-            <NavTree prefix="d" activeGroup={activeGroup} activeItem={activeItem} />
-          </nav>
+          {(I.sideBanner.src || SITE.showPlaceholders) && (
+            <div class="p tight"><Deco item={I.sideBanner} label="세로 배너" hint="컨셉 이미지 · 210×560" class="sidebanner" /></div>
+          )}
           <div class="p">
             <div class="cap">calendar</div>
             <Calendar />

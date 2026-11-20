@@ -59,7 +59,7 @@ img { max-width: 100%; }
 }
 .inner {
   flex: 1; background: var(--inner); border-radius: 14px; padding: 12px; display: grid; gap: 10px;
-  grid-template-columns: 190px minmax(0, 1fr) 210px; grid-template-rows: auto 1fr auto;
+  grid-template-columns: 210px minmax(0, 1fr) 210px; grid-template-rows: auto 1fr auto;
   grid-template-areas: 'hd hd hd' 'left main right' 'foot foot foot';
   align-items: start;
 }
@@ -99,12 +99,19 @@ img { max-width: 100%; }
 
 .sidebanner { height: 560px; }
 
-/* ── 좌측바 프로필 카드 ── */
-.profile { text-align: center; }
-.pf-photo { aspect-ratio: 1; width: 100%; border-radius: 10px; }
-.pf-name { margin-top: 8px; font: 400 22px/1.2 var(--hand); }
-.pf-status { margin: 2px auto 0; display: inline-block; font-size: 11.5px; color: var(--pink-deep); background: var(--pink-soft); border-radius: 10px; padding: 1px 10px; }
-.pf-info { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; margin: 10px 0 0; padding-top: 8px; border-top: 2px dashed var(--line); text-align: left; font-size: 12px; }
+/* ── 좌측바 작은 프로필 ── */
+.pf-row { display: flex; align-items: center; gap: 10px; }
+.pf-photo { width: 64px; height: 64px; flex-shrink: 0; border-radius: 10px; }
+.pf-photo.ph b { font-size: 18px; }
+.pf-text { min-width: 0; }
+.pf-name { font: 400 20px/1.2 var(--hand); }
+.pf-status { margin-top: 3px; display: inline-block; font-size: 11px; color: var(--pink-deep); background: var(--pink-soft); border-radius: 10px; padding: 1px 8px; }
+.pf-more { margin-top: 8px; border-top: 2px dashed var(--line); padding-top: 6px; }
+.pf-more summary { cursor: pointer; font: 11px var(--pixel); color: var(--mute); list-style: none; }
+.pf-more summary::-webkit-details-marker { display: none; }
+.pf-more summary::before { content: '▸ '; color: var(--pink); }
+.pf-more[open] summary::before { content: '▾ '; }
+.pf-info { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; margin: 6px 0 0; font-size: 12px; }
 .pf-info dt { font: 10px/1.9 var(--pixel); color: var(--pink-deep); }
 .pf-info dd { margin: 0; line-height: 1.6; }
 .b88 { width: 88px; height: 31px; border-radius: 4px; flex-shrink: 0; }
@@ -183,12 +190,10 @@ pre { padding: 0.9rem 1rem; border-radius: 8px; overflow-x: auto; border: 1px so
   .outer { padding: 8px; border-radius: 16px; }
   .inner { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'hd' 'mnav' 'main' 'right' 'left' 'foot'; padding: 8px; }
   .banner { height: 110px; }
-  .left { flex-direction: column; }
   .sidebanner { height: 360px; }
-  .pf-photo { width: 140px; margin: 0 auto; }
   .banner-title { font-size: 30px; right: 14px; bottom: 10px; }
   .banner .ph { padding-left: 16px; }
-  .right .nav { display: none; }
+  .left .nav { display: none; }
   .outer { min-height: 0; }
   .inner { grid-template-rows: none; }
   .mnav { grid-area: mnav; display: flex; gap: 6px; align-items: flex-start; }
