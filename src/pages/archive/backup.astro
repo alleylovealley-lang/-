@@ -20,6 +20,7 @@ const links = await getBackups();
   <PageHead en="BACKUP LINKS" ko="백업 링크" desc="사이트와 자료를 백업해 둔 곳을 모아둬요." />
 
   <Box title="LINKS" sub="백업 링크">
+    {links.length === 0 && <p class="empty">아직 백업 링크가 없어요</p>}
     <div class="links">{links.map((l) => (
       <a class="lk" href={l.data.url} target="_blank" rel="noopener">
         <span class="k">{l.data.kind}</span><b>💾 {l.data.title} ↗</b>

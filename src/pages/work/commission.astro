@@ -19,6 +19,7 @@ const pending = all.filter((c) => !c.data.paid && c.data.status !== 'canceled').
     <div><small>{y}년 받은 작업비</small><b>{won(earned)}</b></div>
     <div><small>받을 작업비</small><b>{won(pending)}</b></div>
   </div>
+  {all.length === 0 && <p class="empty">아직 커미션 기록이 없어요</p>}
   {(['progress', 'inquiry', 'done', 'canceled'] as const).filter((s) => by(s).length).map((s) => (
     <Box title={ST[s]} sub={s.toUpperCase()}>
       <div class="cards">{by(s).map((c) => (

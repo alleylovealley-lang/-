@@ -38,6 +38,7 @@ const stat = (y: number) => {
 ---
 <Base title="YEAR IN REVIEW · 연말 결산" description="한 해 기록 돌아보기">
   <PageHead en="YEAR IN REVIEW" ko="연말 결산" desc="한 해 동안 쌓인 기록을 한눈에 돌아봐요." />
+  {years.length === 0 && <p class="empty">아직 돌아볼 기록이 없어요. 기록이 쌓이면 여기에 한 해가 정리돼요 ✧</p>}
   <div class="filter" role="group" aria-label="연도">
     {years.map((y, i) => <button type="button" data-y={y} aria-pressed={i === 0 ? 'true' : 'false'}>{y}</button>)}
   </div>

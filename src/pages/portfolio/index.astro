@@ -7,5 +7,6 @@ const projects = await getProjects();
 ---
 <Base title="PORTFOLIO · 작업" description="만든 것들의 기록">
   <PageHead en="PORTFOLIO" ko="작업" desc="만들고, 참여하고, 배운 것들." />
+  {projects.length === 0 && <p class="empty">아직 포트폴리오가 없어요</p>}
   <div><ProjectCards projects={projects} /></div>
 </Base>

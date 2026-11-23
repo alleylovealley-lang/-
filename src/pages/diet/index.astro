@@ -9,6 +9,7 @@ const ORDER = ['breakfast', 'lunch', 'dinner', 'snack', 'exercise'];
 ---
 <Base title="DIET · 식단·운동" description="식단 및 운동 기록">
   <PageHead en="DIET" ko="식단·운동" desc="먹은 것과 움직인 것을 날짜별로." />
+  {entries.length === 0 && <p class="empty">아직 식단·운동 기록이 없어요</p>}
   {[...byDay].map(([day, items]) => {
     const kcal = items.reduce((s, e) => s + (e.data.kcal ?? 0), 0);
     const min = items.reduce((s, e) => s + (e.data.minutes ?? 0), 0);

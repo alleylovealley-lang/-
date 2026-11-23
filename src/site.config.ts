@@ -22,13 +22,10 @@ export const SITE = {
   /** 좌측바 프로필 카드 — 사진 + 간단한 내 정보 (항목은 자유롭게 추가·삭제) */
   profile: {
     photo: { src: '', alt: '프로필 사진' } as Deco, // 정사각형 추천 (gif 가능)
-    status: '☁ 오늘도 기록 중', // 사진 아래 한 줄 상태 메시지
+    status: '', // 사진 아래 한 줄 상태 메시지 (예: '☁ 오늘도 기록 중')
     items: [
-      { label: '생일', value: '1월 1일' },
-      { label: 'MBTI', value: 'INFP' },
-      { label: '좋아함', value: '산책 · 사진 · 기록' },
-      { label: '요즘', value: '홈피 꾸미기' },
-    ],
+      // { label: '생일', value: '1월 1일' },  ← 이런 식으로 원하는 만큼 추가
+    ] as { label: string; value: string }[],
   },
 
   /** 메뉴 — 대주제 띠를 누르면 접기/펼치기, 소주제를 누르면 해당 페이지로 이동 */
@@ -106,13 +103,12 @@ export const SITE = {
   repo: { owner: 'alleylovealley-lang', name: '-', branch: 'main' },
 
   /** 맨 위 얇은 바에 흘러가는 문구 (이모지 OK) */
-  topbar: ['✧ welcome to my little room ✧', '♡ 오늘도 기록하는 하루', '☁ 천천히 둘러보고 가세요', '🎀 since 2026'],
+  topbar: [] as string[], // 예: ['✧ welcome ✧', '♡ 오늘도 기록하는 하루']
 
   /** ABOUT 페이지 아래 링크 모음 */
   links: [
-    { label: 'GitHub', href: 'https://github.com/', note: '코드' },
-    { label: 'Email', href: 'mailto:hello@example.com', note: '연락' },
-  ],
+    // { label: 'GitHub', href: 'https://github.com/...', note: '코드' },
+  ] as { label: string; href: string; note?: string }[],
 
   /** 꾸미기 이미지 */
   images: {

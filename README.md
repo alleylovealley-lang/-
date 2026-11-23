@@ -18,7 +18,6 @@
 
 1. `src/site.config.ts` — 이름, 소개 문구, 링크(GitHub, 이메일 등) 수정
 2. `src/pages/about.md` — 소개 페이지 내용 작성
-3. 예시 콘텐츠(`sample-project.md`, `draft-example.md`, `reading-list.md` 등)는 지우거나 고쳐 쓰기
 
 ## 사이트 안에서 바로 쓰기
 
@@ -55,7 +54,7 @@ GAME(다마고치·낚시터·아이스크림 가게·룰렛)과 습관 체크, 
 
 메뉴 구성(대주제·하위 메뉴 이름, 설명, 순서)은 `src/site.config.ts`의 `nav`에서 바꿀 수 있어요.
 
-각 폴더의 예시 파일을 복사해서 고쳐 쓰면 가장 쉬워요. 필드 설명은 `src/content.config.ts`에 있어요.
+각 항목에 적을 수 있는 내용(제목, 날짜 등)은 `src/content.config.ts`에 메뉴별로 설명돼 있어요. 아래 예시처럼 쓰면 돼요.
 
 ### 예시: 할 일 (`src/content/todo/tax.yaml`)
 
