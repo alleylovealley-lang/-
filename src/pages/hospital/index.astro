@@ -2,54 +2,268 @@
 import Base from '../../layouts/Base.astro';
 import PageHead from '../../components/PageHead.astro';
 import Box from '../../components/Box.astro';
-import { getHospital, isoDate, won } from '../../lib/utils';
-const visits = await getHospital();
-const nexts = visits.filter((v) => v.data.next).map((v) => ({ name: v.data.name, dept: v.data.department, date: isoDate(v.data.next!) })).sort((a, b) => a.date.localeCompare(b.date));
-const year = new Date().getFullYear();
-const thisYear = visits.filter((v) => v.data.date.getUTCFullYear() === year);
+import { SITE } from '../../site.config';
+import { url, getHospital, isoDate } from '../../lib/utils';
+
+const visits = (await getHospital()).map((v) => ({ ...v.data, date: isoDate(v.data.date), next: v.data.next ? isoDate(v.data.next) : undefined, path: v.filePath }));
+const names = [...new Set(visits.map((v) => v.name))];
+const depts = [...new Set(['내과', '이비인후과', '피부과', '치과', '안과', '정형외과', '산부인과', '소아과', '신경과', '한의원', ...visits.map((v) => v.department).filter(Boolean)])];
+const TYPES = ['💊 알약', '💉 주사', '🧴 연고', '💧 물약', '🩹 처치', '📋 기타'];
 ---
 <Base title="HOSPITAL · 병원" description="병원 방문 기록">
   <meta slot="head" name="robots" content="noindex" />
-  <PageHead en="HOSPITAL" ko="병원" desc="병원 방문 기록과 다음 예약." />
-  <div class="sumbar">
-    <div class="hl"><small>{year}년 방문</small><b>{thisYear.length}번</b></div>
-    <div><small>{year}년 진료비</small><b>{won(thisYear.reduce((s, v) => s + (v.data.cost ?? 0), 0))}</b></div>
+  <PageHead en="HOSPITAL" ko="병원" desc="병원에 간 날, 진료 내용, 처방, 다음 예약을 정리해요." />
+
+  <div class="hosp" data-visits={JSON.stringify(visits)} data-repo={JSON.stringify(SITE.repo)}>
+    <div class="sumbar">
+      <div class="hl"><small>다음 예약</small><b data-next-sum>-</b></div>
+      <div><small>올해 방문</small><b data-year-visits>0번</b></div>
+      <div><small>올해 진료비</small><b data-year-cost>0원</b></div>
+    </div>
+
+    <Box title="NEXT" sub="다음 예약">
+      <div data-upcoming></div>
+    </Box>
+
+    <details class="writer" data-writer>
+      <summary class="pbtn pink">✏️ 병원 기록 쓰기</summary>
+      <form class="hform" data-hform novalidate>
+        <p class="notoken" data-notoken hidden>🔑 저장하려면 먼저 <a href={url('/etc/settings#github')}>설정 › GitHub 연결</a>이 필요해요. 쓰던 내용은 이 브라우저에 임시 저장돼요.</p>
+        <fieldset>
+          <legend>🏥 방문</legend>
+          <div class="grid">
+            <label>방문일 <input type="date" name="date" required /></label>
+            <label>시간 <small>(선택)</small><input type="time" name="time" /></label>
+            <label>병원 이름 <input type="text" name="name" list="hosp-names" maxlength="40" placeholder="예: 맑은내과" /></label>
+            <label>진료과 <small>(선택)</small><input type="text" name="department" list="hosp-depts" maxlength="20" placeholder="예: 내과" /></label>
+          </div>
+          <datalist id="hosp-names">{names.map((n) => <option value={n} />)}</datalist>
+          <datalist id="hosp-depts">{depts.map((n) => <option value={n} />)}</datalist>
+        </fieldset>
+        <fieldset>
+          <legend>🩺 진료</legend>
+          <label>증상·방문 이유 <small>(선택)</small><input type="text" name="reason" maxlength="100" placeholder="예: 목이 붓고 열이 남" /></label>
+          <label>진료 내용 <textarea name="result" rows="3" placeholder="예: 편도염 진단, 3일 뒤 다시 보기로 함"></textarea></label>
+        </fieldset>
+        <fieldset>
+          <legend>💊 처방</legend>
+          <div class="rx-list" data-rx-list></div>
+          <button type="button" class="pbtn sm" data-rx-add>＋ 처방 추가</button>
+          <template data-rx-tpl>
+            <div class="rx-row">
+              <select name="rx-type" aria-label="종류">{TYPES.map((t) => <option value={t.split(' ')[1]}>{t}</option>)}</select>
+              <input type="text" name="rx-name" maxlength="40" placeholder="이름 (예: 해열진통제)" aria-label="처방 이름" />
+              <input type="text" name="rx-dose" maxlength="40" placeholder="복용법 (예: 하루 3번 식후, 5일)" aria-label="복용법" />
+              <button type="button" class="rx-del" aria-label="이 처방 지우기">✕</button>
+            </div>
+          </template>
+          <label class="cost">진료비 <small>(선택, 원)</small><input type="number" name="cost" min="0" step="10" inputmode="numeric" placeholder="0" /></label>
+        </fieldset>
+        <fieldset>
+          <legend>📅 다음 예약 <small>(있으면)</small></legend>
+          <div class="grid">
+            <label>날짜 <input type="date" name="next" /></label>
+            <label>시간 <input type="time" name="nextTime" /></label>
+          </div>
+          <label>메모 <input type="text" name="nextMemo" maxlength="60" placeholder="예: 공복으로 오기, 피검사" /></label>
+        </fieldset>
+        <p class="err" data-err aria-live="polite"></p>
+        <div class="foot">
+          <span class="editing" data-editing hidden>✎ 기존 기록을 고치는 중</span>
+          <button type="button" class="pbtn" data-reset>지우기</button>
+          <button type="submit" class="pbtn pink" data-submit>💾 저장하기</button>
+        </div>
+      </form>
+    </details>
+
+    <Box title="VISITS" sub="방문 기록">
+      <div class="visits" data-visit-list></div>
+    </Box>
   </div>
-  <Box title="NEXT VISIT" sub="다음 방문 예정">
-    <div class="next" data-next={JSON.stringify(nexts)}></div>
-  </Box>
-  <Box title="VISITS" sub="방문 기록">
-    {visits.length === 0 && <p class="empty">아직 병원 기록이 없어요</p>}
-    <div class="visits">{visits.map((v) => (
-      <article>
-        <header><b>🏥 {v.data.name}</b>{v.data.department && <span class="dept">{v.data.department}</span>}<time>{isoDate(v.data.date)}</time></header>
-        <dl>
-          {v.data.reason && <><dt>이유</dt><dd>{v.data.reason}</dd></>}
-          {v.data.result && <><dt>진료</dt><dd>{v.data.result}</dd></>}
-          {v.data.cost != null && <><dt>비용</dt><dd>{won(v.data.cost)}</dd></>}
-          {v.data.next && <><dt>다음</dt><dd>{isoDate(v.data.next)}</dd></>}
-        </dl>
-      </article>
-    ))}</div>
-  </Box>
+  <div class="toast" data-toast role="status" hidden></div>
 </Base>
+
 <script>
-  import { daysUntil, dLabel, esc } from '../../lib/client';
-  const el = document.querySelector<HTMLElement>('.next')!;
-  const list: { name: string; dept?: string; date: string }[] = JSON.parse(el.dataset.next || '[]');
-  const up = list.filter((n) => daysUntil(n.date) >= 0);
-  el.innerHTML = up.length ? up.map((n) => `<div class="nx"><span>${esc(n.name)} <small>${esc(n.dept ?? '')}</small><br><small>${n.date.replaceAll('-', '.')}</small></span><em>${dLabel(n.date)}</em></div>`).join('') : '<p class="empty">예정된 방문이 없어요</p>';
+  import { todayKey, load, save, esc, daysUntil, dLabel } from '../../lib/client';
+  import { getToken, createFile, updateFile, yq, uid, type Repo } from '../../lib/github';
+
+  type Rx = { type: string; name: string; dose?: string };
+  type V = { date: string; time?: string; name: string; department?: string; reason?: string; result?: string; prescriptions: Rx[]; cost?: number; next?: string; nextTime?: string; nextMemo?: string; path?: string; pending?: boolean };
+  const ICON: Record<string, string> = { 알약: '💊', 주사: '💉', 연고: '🧴', 물약: '💧', 처치: '🩹', 기타: '📋' };
+  const root = document.querySelector<HTMLElement>('.hosp')!;
+  const $ = <T extends HTMLElement = HTMLElement>(s: string) => root.querySelector<T>(`[data-${s}]`)!;
+  const repo: Repo = JSON.parse(root.dataset.repo!);
+  const built: V[] = JSON.parse(root.dataset.visits || '[]');
+  const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`;
+  const md = (d: string) => `${Number(d.slice(5, 7))}.${Number(d.slice(8))}`;
+  const dow = (d: string) => '일월화수목금토'[new Date(d + 'T00:00').getDay()];
+
+  /* ── 사이트 기록 + 방금 저장한 기록 ── */
+  const all = (): V[] => {
+    const pend = load<(V & { at: number })[]>('pending.hospital', []).filter((p) => Date.now() - p.at < 20 * 60_000);
+    const fresh = pend.filter((p) => { const b = built.find((x) => x.path === p.path); return !b || JSON.stringify({ ...b, path: 0 }) !== JSON.stringify({ ...p, path: 0, at: undefined, pending: undefined }); });
+    save('pending.hospital', fresh);
+    return [...built.filter((b) => !fresh.some((p) => p.path === b.path)), ...fresh.map((p) => ({ ...p, pending: true }))]
+      .sort((a, b) => b.date.localeCompare(a.date) || (b.time ?? '').localeCompare(a.time ?? ''));
+  };
+
+  const card = (v: V) => `
+    <article class="visit${v.pending ? ' pending' : ''}">
+      <header>
+        <span class="when">${md(v.date)} <small>(${dow(v.date)})${v.time ? ` ${v.time}` : ''}</small></span>
+        <b>🏥 ${esc(v.name)}</b>${v.department ? `<span class="dept">${esc(v.department)}</span>` : ''}
+        ${v.pending ? '<em>반영 중</em>' : ''}
+      </header>
+      ${v.reason ? `<p class="row"><span class="k">증상</span><span>${esc(v.reason)}</span></p>` : ''}
+      ${v.result ? `<p class="row"><span class="k">진료</span><span>${esc(v.result).replace(/\n/g, '<br>')}</span></p>` : ''}
+      ${v.prescriptions.length ? `<div class="row"><span class="k">처방</span><ul class="rx">${v.prescriptions.map((r) => `<li>${ICON[r.type] ?? '📋'} <b>${esc(r.name)}</b>${r.dose ? ` <small>${esc(r.dose)}</small>` : ''}</li>`).join('')}</ul></div>` : ''}
+      ${v.cost != null ? `<p class="row"><span class="k">비용</span><span>${won(v.cost)}</span></p>` : ''}
+      ${v.next ? `<p class="row nextrow"><span class="k">예약</span><span>${v.next.replaceAll('-', '.')} (${dow(v.next)})${v.nextTime ? ` ${v.nextTime}` : ''}${v.nextMemo ? ` · ${esc(v.nextMemo)}` : ''} <em class="dd">${dLabel(v.next)}</em></span></p>` : ''}
+      <footer>${v.path ? `<button type="button" class="pbtn sm" data-edit="${esc(v.path)}">✎ 고치기</button>` : ''}</footer>
+    </article>`;
+
+  const draw = () => {
+    const list = all(), y = String(new Date().getFullYear());
+    const up = list.filter((v) => v.next && daysUntil(v.next) >= 0).sort((a, b) => a.next!.localeCompare(b.next!) || (a.nextTime ?? '').localeCompare(b.nextTime ?? ''));
+    $('upcoming').innerHTML = up.length
+      ? up.map((v) => `<div class="appt"><div><b>${v.next!.replaceAll('-', '.')} (${dow(v.next!)})${v.nextTime ? ` <span class="t">${v.nextTime}</span>` : ''}</b><span>🏥 ${esc(v.name)}${v.department ? ` · ${esc(v.department)}` : ''}${v.nextMemo ? ` — ${esc(v.nextMemo)}` : ''}</span></div><em>${dLabel(v.next!)}</em></div>`).join('')
+      : '<p class="empty">예정된 예약이 없어요</p>';
+    $('next-sum').textContent = up.length ? `${md(up[0].next!)} · ${dLabel(up[0].next!)}` : '없음';
+    const yv = list.filter((v) => v.date.startsWith(y));
+    $('year-visits').textContent = `${yv.length}번`;
+    $('year-cost').textContent = won(yv.reduce((s, v) => s + (v.cost ?? 0), 0));
+    $('visit-list').innerHTML = list.length ? list.map(card).join('') : '<p class="empty">아직 병원 기록이 없어요. 위 ✏️ 병원 기록 쓰기로 남겨 보세요</p>';
+  };
+
+  /* ── 쓰기 양식 ── */
+  const form = $<HTMLFormElement>('hform');
+  const f = (n: string) => form.elements.namedItem(n) as HTMLInputElement;
+  const rxList = $('rx-list'), tpl = $<HTMLTemplateElement>('rx-tpl');
+  const draftKey = 'draft.hospital';
+  let editPath = '';
+  const addRx = (r: Partial<Rx> = {}) => {
+    const row = tpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
+    (row.querySelector('[name="rx-type"]') as HTMLSelectElement).value = r.type ?? '알약';
+    (row.querySelector('[name="rx-name"]') as HTMLInputElement).value = r.name ?? '';
+    (row.querySelector('[name="rx-dose"]') as HTMLInputElement).value = r.dose ?? '';
+    row.querySelector('.rx-del')!.addEventListener('click', () => { row.remove(); saveDraft(); });
+    rxList.append(row);
+  };
+  const read = (): V => {
+    const v = (n: string) => f(n).value.trim();
+    const rx = [...rxList.querySelectorAll<HTMLElement>('.rx-row')].map((r) => ({
+      type: (r.querySelector('[name="rx-type"]') as HTMLSelectElement).value,
+      name: (r.querySelector('[name="rx-name"]') as HTMLInputElement).value.trim(),
+      dose: (r.querySelector('[name="rx-dose"]') as HTMLInputElement).value.trim() || undefined,
+    })).filter((r) => r.name);
+    const cost = v('cost') === '' ? undefined : Math.round(Number(v('cost')));
+    return {
+      date: v('date') || todayKey(), time: v('time') || undefined, name: v('name'), department: v('department') || undefined,
+      reason: v('reason') || undefined, result: (f('result') as unknown as HTMLTextAreaElement).value.trim() || undefined,
+      prescriptions: rx, cost: Number.isFinite(cost) ? cost : undefined,
+      next: v('next') || undefined, nextTime: v('next') ? v('nextTime') || undefined : undefined, nextMemo: v('next') ? v('nextMemo') || undefined : undefined,
+    };
+  };
+  const fill = (x: Partial<V>) => {
+    form.reset();
+    f('date').value = x.date || todayKey();
+    (['time', 'name', 'department', 'reason', 'next', 'nextTime', 'nextMemo'] as const).forEach((k) => (f(k).value = (x[k] as string) ?? ''));
+    (f('result') as unknown as HTMLTextAreaElement).value = x.result ?? '';
+    f('cost').value = x.cost != null ? String(x.cost) : '';
+    rxList.innerHTML = ''; (x.prescriptions?.length ? x.prescriptions : [{}]).forEach(addRx);
+  };
+  const setEditing = (p: string) => { editPath = p; $('editing').hidden = !p; $('submit').textContent = p ? '💾 고친 내용 저장' : '💾 저장하기'; };
+  const saveDraft = () => save(draftKey, { ...read(), editPath });
+  const refresh = () => { $('notoken').hidden = !!getToken(); $('err').textContent = ''; };
+  const toFile = (x: V) => [
+    `date: ${x.date}`, x.time && `time: ${yq(x.time)}`, `name: ${yq(x.name)}`, x.department && `department: ${yq(x.department)}`,
+    x.reason && `reason: ${yq(x.reason)}`, x.result && `result: ${yq(x.result)}`,
+    x.prescriptions.length && `prescriptions:\n${x.prescriptions.map((r) => `  - type: ${yq(r.type)}\n    name: ${yq(r.name)}${r.dose ? `\n    dose: ${yq(r.dose)}` : ''}`).join('\n')}`,
+    x.cost != null && `cost: ${x.cost}`, x.next && `next: ${x.next}`, x.nextTime && `nextTime: ${yq(x.nextTime)}`, x.nextMemo && `nextMemo: ${yq(x.nextMemo)}`,
+  ].filter(Boolean).join('\n') + '\n';
+
+  const dr = load<(V & { editPath?: string }) | null>(draftKey, null);
+  fill(dr ?? {}); setEditing(dr?.editPath ?? ''); refresh();
+  if (dr && (dr.name || dr.result)) ($('writer') as HTMLDetailsElement).open = true;
+  form.addEventListener('input', saveDraft);
+  form.addEventListener('focusin', () => ($('notoken').hidden = !!getToken()));
+  $('rx-add').addEventListener('click', () => { addRx(); (rxList.lastElementChild?.querySelector('[name="rx-name"]') as HTMLInputElement)?.focus(); });
+  $('reset').addEventListener('click', () => { save(draftKey, null); fill({}); setEditing(''); refresh(); });
+  root.addEventListener('click', (ev) => {
+    const b = (ev.target as HTMLElement).closest<HTMLElement>('[data-edit]'); if (!b) return;
+    const v = all().find((x) => x.path === b.dataset.edit); if (!v) return;
+    fill(v); setEditing(v.path!); saveDraft(); refresh();
+    const w = $('writer') as HTMLDetailsElement; w.open = true; w.scrollIntoView({ behavior: 'smooth' });
+  });
+  const toast = (m: string) => { const t = document.querySelector<HTMLElement>('[data-toast]')!; t.textContent = m; t.hidden = false; setTimeout(() => (t.hidden = true), 4000); };
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const x = read(), err = $('err');
+    if (!x.name) { err.textContent = '병원 이름을 적어 주세요 🏥'; f('name').focus(); return; }
+    if (!getToken()) { err.textContent = '🔑 GitHub 연결이 필요해요. 쓴 내용은 임시 저장돼 있어요.'; $('notoken').hidden = false; return; }
+    const btn = $<HTMLButtonElement>('submit'); const label = btn.textContent; btn.disabled = true; btn.textContent = '저장 중…';
+    try {
+      const path = editPath || `src/content/hospital/${x.date}-${uid()}.yaml`;
+      const msg = `병원: ${x.date} ${x.name}`;
+      if (editPath) await updateFile(repo, path, toFile(x), `${msg} (수정)`); else await createFile(repo, path, toFile(x), msg);
+      save('pending.hospital', [...load<(V & { at: number })[]>('pending.hospital', []).filter((p) => p.path !== path), { ...x, path, at: Date.now() }]);
+      save(draftKey, null); fill({}); setEditing(''); ($('writer') as HTMLDetailsElement).open = false;
+      draw(); toast('💾 병원 기록을 저장했어요! 1~2분 뒤 사이트에 완전히 반영돼요');
+    } catch (x2) { err.textContent = (x2 as Error).message === 'NO_TOKEN' ? '🔑 GitHub 연결이 필요해요.' : (x2 as Error).message; }
+    finally { btn.disabled = false; if (btn.textContent === '저장 중…') btn.textContent = label; }
+  });
+  draw();
 </script>
+
 <style>
-  .next :global(.nx) { display: flex; justify-content: space-between; align-items: center; background: var(--pink-soft); border: 1.5px solid var(--pink); border-radius: 8px; padding: 6px 12px; margin-bottom: 6px; font-size: 13px; }
-  .next :global(small) { color: var(--mute); font-size: 11px; }
-  .next :global(em) { font: normal 18px var(--pixel); color: var(--pink-deep); }
-  .visits { display: grid; gap: 8px; }
-  article { border: 1.5px solid var(--line); border-radius: 8px; padding: 8px 12px; background: #fff; }
-  header { display: flex; gap: 8px; align-items: baseline; }
-  header time { margin-left: auto; font: 11px var(--pixel); color: var(--mute); }
-  .dept { font: 10px var(--pixel); background: #3a3a3a; color: #fff; border-radius: 3px; padding: 0 6px; }
-  dl { display: grid; grid-template-columns: 40px 1fr; gap: 2px 8px; margin: 6px 0 0; font-size: 12.5px; }
-  dt { color: var(--pink-deep); font: 11px var(--pixel); }
-  dd { margin: 0; }
+  :global(.hosp .appt) { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--pink-soft); border: 1.5px solid var(--pink); border-radius: 8px; padding: 8px 12px; margin-bottom: 6px; font-size: 13px; }
+  :global(.hosp .appt > div) { display: flex; flex-direction: column; }
+  :global(.hosp .appt b) { font: 400 14px var(--pixel); }
+  :global(.hosp .appt .t) { color: var(--pink-deep); }
+  :global(.hosp .appt > div > span) { color: #666; }
+  :global(.hosp .appt > em) { font: normal 18px var(--pixel); color: var(--pink-deep); flex-shrink: 0; }
+  .writer { margin: 0 0 22px; }
+  .writer > summary { display: inline-block; list-style: none; cursor: pointer; margin-bottom: 10px; }
+  .writer > summary::-webkit-details-marker { display: none; }
+  .hform { display: flex; flex-direction: column; gap: 12px; border: 2px dashed var(--pink); border-radius: 10px; padding: 14px 16px; background: var(--pink-soft); }
+  fieldset { border: 1.5px solid #f3cfd9; border-radius: 8px; padding: 8px 12px 12px; margin: 0; background: #fff; display: flex; flex-direction: column; gap: 8px; }
+  legend { font: 12px var(--pixel); color: var(--pink-deep); padding: 0 4px; }
+  legend small { font: 11px var(--font); color: var(--mute); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px 12px; }
+  label { display: flex; flex-direction: column; gap: 3px; font: 11px var(--pixel); color: var(--pink-deep); }
+  label small { font: 10.5px var(--font); color: var(--mute); }
+  input, select, textarea { font: 14px var(--font); color: var(--ink); border: 2px solid #d4d4d4; border-radius: 6px; padding: 6px 8px; background: #fff; min-width: 0; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--pink-deep); }
+  textarea { resize: vertical; line-height: 1.6; }
+  .rx-list { display: flex; flex-direction: column; gap: 6px; }
+  .rx-list :global(.rx-row) { display: grid; grid-template-columns: 104px 1fr 1.3fr 28px; gap: 6px; }
+  .rx-list :global(.rx-del) { border: 1.5px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; color: var(--mute); }
+  .rx-list :global(.rx-del:hover) { border-color: var(--pink-deep); color: var(--pink-deep); }
+  .cost { max-width: 200px; }
+  :global(.pbtn.sm) { font-size: 11px; padding: 2px 8px; box-shadow: 1px 1px 0 #bbb; border-width: 1.5px; align-self: flex-start; }
+  .notoken { margin: 0; padding: 8px 10px; border: 1.5px dashed var(--pink); border-radius: 8px; background: #fff; font-size: 12.5px; }
+  .err { margin: 0; min-height: 1.2em; font-size: 12.5px; color: var(--pink-deep); }
+  .foot { display: flex; justify-content: flex-end; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .editing { margin-right: auto; font: 11px var(--pixel); color: var(--pink-deep); }
+  .visits { display: grid; gap: 10px; }
+  :global(.hosp .visit) { border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 14px; background: #fff; display: flex; flex-direction: column; gap: 5px; font-size: 13px; }
+  :global(.hosp .visit.pending) { border-style: dashed; border-color: var(--pink); }
+  :global(.hosp .visit header) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+  :global(.hosp .visit .when) { font: 400 14px var(--pixel); }
+  :global(.hosp .visit .when small) { color: var(--mute); }
+  :global(.hosp .visit .dept) { font: 10px var(--pixel); background: #3a3a3a; color: #fff; border-radius: 3px; padding: 0 6px; }
+  :global(.hosp .visit header em) { margin-left: auto; font: normal 10px var(--pixel); color: #fff; background: var(--pink); border-radius: 3px; padding: 0 5px; }
+  :global(.hosp .visit .row) { margin: 0; display: grid; grid-template-columns: 40px 1fr; gap: 8px; align-items: baseline; }
+  :global(.hosp .visit .k) { font: 11px var(--pixel); color: var(--pink-deep); }
+  :global(.hosp .visit .rx) { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  :global(.hosp .visit .rx small) { color: var(--mute); }
+  :global(.hosp .visit .dd) { font: normal 11px var(--pixel); color: var(--pink-deep); margin-left: 4px; }
+  :global(.hosp .visit footer) { display: flex; justify-content: flex-end; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; background: #3a3a3a; color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 13px; box-shadow: 0 4px 14px #0003; }
+  @media (max-width: 860px) {
+    .rx-list :global(.rx-row) { grid-template-columns: 1fr 32px; padding-bottom: 6px; border-bottom: 1px dashed #eee; }
+    .rx-list :global(.rx-row select) { grid-column: 1; grid-row: 1; }
+    .rx-list :global(.rx-del) { grid-column: 2; grid-row: 1; }
+    .rx-list :global(.rx-row input) { grid-column: 1 / -1; }
+  }
 </style>

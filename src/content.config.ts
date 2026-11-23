@@ -96,13 +96,19 @@ const diet = defineCollection({
 const hospital = defineCollection({
   loader: yaml('hospital'),
   schema: z.object({
-    date,
+    date, // 방문일
+    time: z.string().optional(), // 방문 시간 '14:30'
     name: z.string(), // 병원 이름
     department: z.string().optional(), // 진료과
-    reason: z.string().optional(), // 방문 이유
-    result: z.string().optional(), // 진단·처방
-    cost: z.number().optional(),
-    next: date.optional(), // 다음 방문 예정일
+    reason: z.string().optional(), // 증상·방문 이유
+    result: z.string().optional(), // 진료 내용
+    prescriptions: z
+      .array(z.object({ type: z.string().default('기타'), name: z.string(), dose: z.string().optional() }))
+      .default([]), // 처방 (종류: 알약·주사·연고·물약·처치·기타)
+    cost: z.number().optional(), // 진료비
+    next: date.optional(), // 다음 예약 날짜
+    nextTime: z.string().optional(), // 다음 예약 시간
+    nextMemo: z.string().optional(), // 다음 예약 메모
   }),
 });
 
