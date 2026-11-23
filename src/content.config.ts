@@ -236,12 +236,18 @@ const moodboards = defineCollection({
 /** REFERENCE — 레퍼런스 앨범 */
 const references = defineCollection({
   loader: yaml('references'),
+  // 파일 하나 = 앨범 하나. 이미지는 public/references/<앨범 파일 이름>/ 에 저장돼요
   schema: z.object({
-    image: z.string(),
-    album: z.string(), // 종류 (예: 색감, 포즈, 배경)
-    title: z.string().optional(),
-    source: z.string().optional(), // 출처 링크
-    date: date.optional(),
+    title: z.string(), // 앨범 주제 (예: 손 포즈, 노을 색감)
+    desc: z.string().optional(),
+    cover: z.string().optional(), // 대표 이미지 (images 중 하나의 src)
+    created: date.optional(),
+    images: z.array(z.object({
+      src: z.string(), // 'references/…/파일.jpg' 또는 https:// 주소
+      memo: z.string().optional(),
+      source: z.string().optional(), // 출처 링크
+      added: date.optional(),
+    })).default([]),
   }),
 });
 

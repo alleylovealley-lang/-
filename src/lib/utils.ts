@@ -47,7 +47,7 @@ export const getMoney = async () => (await getCollection('money')).sort(byDate);
 export const getSubscriptions = async () => (await getCollection('subscriptions')).sort((a, b) => a.data.billingDay - b.data.billingDay);
 export const getCommissions = async () => await getCollection('commissions');
 export const getMoodboards = async () => (await getCollection('moodboards')).sort(byDate);
-export const getReferences = async () => await getCollection('references');
+export const getReferences = async () => (await getCollection('references')).sort((a, b) => +(b.data.created ?? 0) - +(a.data.created ?? 0));
 export const getBackups = async () => await getCollection('backups');
 
 export const REVIEW_KINDS = { book: '📚 BOOK', anime: '📺 ANIME', movie: '🎬 MOVIE', drama: '🎞 DRAMA' } as const;

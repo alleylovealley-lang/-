@@ -48,7 +48,7 @@
 | WORK › 커미션 | `src/content/commissions/` | `.yaml` — `status: inquiry / progress / done / canceled` |
 | WORK › 포트폴리오 | `src/content/projects/` | `.md` |
 | ARCHIVE › 무드보드 | `src/content/moodboards/` | `.yaml` (자유 무드보드는 사이트에서) |
-| ARCHIVE › 레퍼런스 | `src/content/references/` | `.yaml` — `album:`으로 분류 |
+| ARCHIVE › 레퍼런스 | `src/content/references/` (앨범) + `public/references/` (이미지) | `.yaml` 하나 = 앨범 하나 — 사이트의 ＋ 새 앨범으로 주제를 만들고, 이미지를 고르기·끌어다 놓기·붙여넣기(⌘V)로 넣어요. 큰 이미지는 1600px로 줄여서 저장돼요 (`title`, `desc`, `cover`, `images: [{src, memo, source}]`) |
 | ARCHIVE › 사진 | `src/content/photos/` + 이미지는 `public/images/photos/` | `.yaml` — `album:`으로 분류 |
 | ARCHIVE › 백업 링크 | `src/content/backups/` | `.yaml` |
 

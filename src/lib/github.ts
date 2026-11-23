@@ -124,6 +124,41 @@ export async function deleteFile(repo: Repo, path: string, message: string) {
   if (!r.ok && r.status !== 404) throw saveError(r.status, await r.json().catch(() => ({})));
 }
 
+/** 바이너리(이미지 등) → base64 */
+export async function blobToB64(blob: Blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+export type Change = { path: string; text?: string; base64?: string; remove?: boolean };
+/** 여러 파일을 커밋 하나로 한꺼번에 저장·삭제 (이미지 여러 장 + 앨범 파일) */
+export async function commitFiles(repo: Repo, changes: Change[], message: string) {
+  const token = getToken();
+  if (!token) throw new Error('NO_TOKEN');
+  const h = { ...headers(token), 'Content-Type': 'application/json' };
+  const j = async (path: string, init: RequestInit = {}) => {
+    const r = await call(api(repo, path), { ...init, headers: h });
+    if (!r.ok) throw saveError(r.status, await r.json().catch(() => ({})));
+    return r.json();
+  };
+  const tree = await Promise.all(changes.map(async (c) => c.remove
+    ? { path: c.path, mode: '100644', type: 'blob', sha: null }
+    : { path: c.path, mode: '100644', type: 'blob', sha: (await j('git/blobs', { method: 'POST', body: JSON.stringify({ content: c.base64 ?? b64(c.text ?? ''), encoding: 'base64' }) })).sha }));
+  const br = encodeURIComponent(repo.branch);
+  for (let i = 0; i < 3; i++) {
+    const head = (await j(`git/ref/heads/${br}`)).object.sha;
+    const base = (await j(`git/commits/${head}`)).tree.sha;
+    const t = await j('git/trees', { method: 'POST', body: JSON.stringify({ base_tree: base, tree }) });
+    const c = await j('git/commits', { method: 'POST', body: JSON.stringify({ message, tree: t.sha, parents: [head] }) });
+    const r = await call(api(repo, `git/refs/heads/${br}`), { method: 'PATCH', headers: h, body: JSON.stringify({ sha: c.sha }) });
+    if (r.ok) return;
+    if (r.status !== 409 && r.status !== 422) throw saveError(r.status, await r.json().catch(() => ({})));
+  }
+  throw new Error('다른 저장과 겹쳤어요. 잠시 뒤 다시 해 주세요.');
+}
+
 /** YAML 안전한 문자열 (큰따옴표 + 이스케이프) */
 export const yq = (s: string) => JSON.stringify(s);
 /** 파일 이름용 짧은 고유값 */
