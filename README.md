@@ -42,7 +42,7 @@
 | REVIEW › 도서·애니·영화·드라마 | `src/content/reviews/` | `.md` — `kind: book / anime / movie / drama` |
 | REVIEW › 플레이리스트 | `src/content/playlist/` | `.yaml` — 애플뮤직 공유 링크 |
 | FINANCE › 수입·지출 | `src/content/money/` | `.yaml` — `type: income / expense` |
-| FINANCE › 구독 관리 | `src/content/subscriptions/` | `.yaml` |
+| FINANCE › 구독 관리 | `src/content/subscriptions/` | `.yaml` — 사이트의 ✏️ 구독 추가로 작성. **구독 중 / 종료** 탭으로 나눠 보고, 카드의 ⏹ 구독 종료 · ↺ 다시 구독 버튼으로 옮겨요 (`price`, `cycle` 매월/매년, `billingDay`·`billingMonth` 결제일, `method`, `start`, `active`, `ended` 종료일) |
 | WORK › 커미션 | `src/content/commissions/` | `.yaml` — `status: inquiry / progress / done / canceled` |
 | WORK › 포트폴리오 | `src/content/projects/` | `.md` |
 | ARCHIVE › 무드보드 | `src/content/moodboards/` | `.yaml` (자유 무드보드는 사이트에서) |

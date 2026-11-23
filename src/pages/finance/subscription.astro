@@ -2,71 +2,311 @@
 import Base from '../../layouts/Base.astro';
 import PageHead from '../../components/PageHead.astro';
 import Box from '../../components/Box.astro';
-import { getSubscriptions } from '../../lib/utils';
-const subs = (await getSubscriptions()).map((s) => s.data);
-const active = subs.filter((s) => s.active);
-const monthly = active.reduce((sum, s) => sum + (s.cycle === 'yearly' ? s.price / 12 : s.price), 0);
-const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`;
+import { SITE } from '../../site.config';
+import { url, getSubscriptions, isoDate } from '../../lib/utils';
+
+const subs = (await getSubscriptions()).map((s) => ({
+  ...s.data,
+  start: s.data.start ? isoDate(s.data.start) : undefined,
+  ended: s.data.ended ? isoDate(s.data.ended) : undefined,
+  path: s.filePath,
+}));
+const cats = [...new Set(['영상', '음악', '클라우드', '게임', '쇼핑', '생산성', '공부', '기타', ...subs.map((s) => s.category).filter(Boolean)])];
+const methods = [...new Set(subs.map((s) => s.method).filter(Boolean))];
 ---
 <Base title="SUBSCRIPTION · 구독" description="정기구독 관리">
   <meta slot="head" name="robots" content="noindex" />
-  <PageHead en="SUBSCRIPTION" ko="구독 관리" desc="정기구독 목록과 결제일을 한눈에." />
-  <div class="sum">
-    <div><small>월 합계</small><b>{won(monthly)}</b></div>
-    <div><small>연 환산</small><b>{won(monthly * 12)}</b></div>
-    <div><small>구독 수</small><b>{active.length}개</b></div>
+  <PageHead en="SUBSCRIPTION" ko="구독 관리" desc="구독 중인 서비스와 다음 결제일, 끝낸 구독까지 정리해요." />
+
+  <div class="subp" data-subs={JSON.stringify(subs)} data-repo={JSON.stringify(SITE.repo)}>
+    <details class="writer" data-writer>
+      <summary class="pbtn pink">✏️ 구독 추가</summary>
+      <form class="sform" data-sform novalidate>
+        <p class="notoken" data-notoken hidden>🔑 저장하려면 먼저 <a href={url('/etc/settings#github')}>설정 › GitHub 연결</a>이 필요해요. 쓰던 내용은 이 브라우저에 임시 저장돼요.</p>
+        <fieldset>
+          <legend>📦 서비스</legend>
+          <div class="grid">
+            <label>서비스 이름 <input type="text" name="name" maxlength="40" placeholder="예: 동영상 스트리밍" /></label>
+            <label>분류 <small>(선택)</small><input type="text" name="category" list="sub-cats" maxlength="20" placeholder="예: 영상" /></label>
+          </div>
+          <datalist id="sub-cats">{cats.map((n) => <option value={n} />)}</datalist>
+        </fieldset>
+        <fieldset>
+          <legend>💳 결제</legend>
+          <div class="grid">
+            <label>가격 <small>(원, 한 번 결제 금액)</small><input type="number" name="price" min="0" step="10" inputmode="numeric" placeholder="0" /></label>
+            <label>결제 주기
+              <select name="cycle"><option value="monthly">매월</option><option value="yearly">매년</option></select>
+            </label>
+            <label>다음 결제일 <input type="date" name="nextDate" /></label>
+            <label>결제 수단 <small>(선택)</small><input type="text" name="method" list="sub-methods" maxlength="30" placeholder="예: 신용카드" /></label>
+          </div>
+          <datalist id="sub-methods">{methods.map((n) => <option value={n} />)}</datalist>
+          <p class="hint" data-hint></p>
+        </fieldset>
+        <fieldset>
+          <legend>🗂 기타 <small>(선택)</small></legend>
+          <div class="grid">
+            <label>구독 시작일 <input type="date" name="start" /></label>
+            <label class="chk"><span><input type="checkbox" name="isEnded" /> 이미 끝낸 구독</span></label>
+            <label data-ended-wrap hidden>종료일 <input type="date" name="ended" /></label>
+          </div>
+          <label>메모 <input type="text" name="memo" maxlength="80" placeholder="예: 가족 요금제, 연간 결제가 더 쌈" /></label>
+        </fieldset>
+        <p class="err" data-err aria-live="polite"></p>
+        <div class="foot">
+          <span class="editing" data-editing hidden>✎ 기존 구독을 고치는 중</span>
+          <button type="button" class="pbtn" data-reset>지우기</button>
+          <button type="submit" class="pbtn pink" data-submit>💾 저장하기</button>
+        </div>
+      </form>
+    </details>
+
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" class="tab" data-tab="on" aria-selected="true">🟢 구독 중</button>
+      <button type="button" role="tab" class="tab" data-tab="off" aria-selected="false">⏹ 종료</button>
+    </div>
+    <Box title="LIST" sub="구독 목록">
+      <div class="list" data-list></div>
+    </Box>
   </div>
-  <Box title="LIST" sub="구독 목록">
-    {active.length === 0 && <p class="empty">아직 등록한 구독이 없어요</p>}
-    <table class="subs" data-subs={JSON.stringify(active)} hidden={active.length === 0}>
-      <thead><tr><th>서비스</th><th>분류</th><th>금액</th><th>결제일</th><th>다음 결제</th></tr></thead>
-      <tbody>
-        {active.map((s, i) => (
-          <tr>
-            <td><b>{s.name}</b>{s.memo && <small> {s.memo}</small>}</td>
-            <td>{s.category}</td>
-            <td>{won(s.price)}<small>/{s.cycle === 'yearly' ? '년' : '월'}</small></td>
-            <td>{s.cycle === 'yearly' ? `${s.billingMonth}월 ` : '매월 '}{s.billingDay}일</td>
-            <td class="next" data-i={i}></td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </Box>
-  <p class="muted small">결제일은 일정 캘린더에도 표시할 수 있어요 (다음 단계).</p>
+  <div class="toast" data-toast role="status" hidden></div>
 </Base>
+
 <script>
-  type Sub = { cycle: string; billingDay: number; billingMonth?: number };
-  const t = document.querySelector<HTMLElement>('.subs')!;
-  const subs: Sub[] = JSON.parse(t.dataset.subs || '[]');
-  const now = new Date(); now.setHours(0, 0, 0, 0);
+  import { todayKey, load, save, esc, daysUntil, dLabel } from '../../lib/client';
+  import { getToken, createFile, updateFile, yq, uid, type Repo } from '../../lib/github';
+
+  type S = {
+    name: string; price: number; cycle: 'monthly' | 'yearly'; billingDay: number; billingMonth?: number;
+    category?: string; method?: string; start?: string; active: boolean; ended?: string; memo?: string;
+    path?: string; pending?: boolean;
+  };
+  const root = document.querySelector<HTMLElement>('.subp')!;
+  const $ = <T extends HTMLElement = HTMLElement>(s: string) => root.querySelector<T>(`[data-${s}]`)!;
+  const repo: Repo = JSON.parse(root.dataset.repo!);
+  const built: S[] = JSON.parse(root.dataset.subs || '[]');
+  const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`;
+  const dot = (d: string) => d.replaceAll('-', '.');
+  const dow = (d: string) => '일월화수목금토'[new Date(d + 'T00:00').getDay()];
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const key = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const clampDay = (y: number, m: number, d: number) => new Date(y, m, Math.min(d, new Date(y, m + 1, 0).getDate()));
-  t.querySelectorAll<HTMLElement>('.next').forEach((td) => {
-    const s = subs[Number(td.dataset.i)];
-    let next: Date;
+  /** 결제일(며칠, 몇 월)로 오늘 이후 가장 가까운 결제 날짜 */
+  const nextBill = (s: Pick<S, 'cycle' | 'billingDay' | 'billingMonth'>) => {
+    const now = new Date(todayKey() + 'T00:00');
+    let n: Date;
     if (s.cycle === 'yearly') {
-      next = clampDay(now.getFullYear(), (s.billingMonth ?? 1) - 1, s.billingDay);
-      if (next < now) next = clampDay(now.getFullYear() + 1, (s.billingMonth ?? 1) - 1, s.billingDay);
+      const m = (s.billingMonth ?? 1) - 1;
+      n = clampDay(now.getFullYear(), m, s.billingDay);
+      if (n < now) n = clampDay(now.getFullYear() + 1, m, s.billingDay);
     } else {
-      next = clampDay(now.getFullYear(), now.getMonth(), s.billingDay);
-      if (next < now) next = clampDay(now.getFullYear(), now.getMonth() + 1, s.billingDay);
+      n = clampDay(now.getFullYear(), now.getMonth(), s.billingDay);
+      if (n < now) n = clampDay(now.getFullYear(), now.getMonth() + 1, s.billingDay);
     }
-    const n = Math.round((+next - +now) / 86400000);
-    td.innerHTML = `${next.getMonth() + 1}.${next.getDate()} <em>${n === 0 ? '오늘' : `D-${n}`}</em>`;
-    if (n <= 3) td.classList.add('soon');
+    return key(n);
+  };
+  const same = (a: object, b: object) => {
+    const norm = (o: object) => JSON.stringify(Object.entries(o).filter(([k, v]) => v !== undefined && !['path', 'at', 'pending'].includes(k)).sort(([x], [y]) => x.localeCompare(y)));
+    return norm(a) === norm(b);
+  };
+
+  /* ── 사이트 기록 + 방금 저장한 기록 ── */
+  const PKEY = 'pending.subs';
+  const all = (): S[] => {
+    const pend = load<(S & { at: number })[]>(PKEY, []).filter((p) => Date.now() - p.at < 20 * 60_000);
+    const fresh = pend.filter((p) => { const b = built.find((x) => x.path === p.path); return !b || !same(b, p); });
+    save(PKEY, fresh);
+    return [...built.filter((b) => !fresh.some((p) => p.path === b.path)), ...fresh.map((p) => ({ ...p, pending: true }))];
+  };
+
+  let tab: 'on' | 'off' = 'on';
+  const card = (s: S) => {
+    const per = s.cycle === 'yearly' ? '년' : '월';
+    const when = s.cycle === 'yearly' ? `매년 ${s.billingMonth}월 ${s.billingDay}일` : `매월 ${s.billingDay}일`;
+    const nb = s.active ? nextBill(s) : '';
+    const dd = nb ? daysUntil(nb) : 99;
+    const rows = [
+      s.active
+        ? `<p class="row"><span class="k">다음 결제</span><span><b>${dot(nb)} (${dow(nb)})</b> <em class="dd">${dd === 0 ? 'D-DAY' : dLabel(nb)}</em> <small>· ${when}</small></span></p>`
+        : `<p class="row"><span class="k">종료일</span><span>${s.ended ? `${dot(s.ended)} (${dow(s.ended)})` : '-'} <small>· 원래 ${when} 결제</small></span></p>`,
+      s.method && `<p class="row"><span class="k">결제 수단</span><span>${esc(s.method)}</span></p>`,
+      s.start && `<p class="row"><span class="k">구독 기간</span><span>${dot(s.start)} ~ ${s.active ? '지금' : s.ended ? dot(s.ended) : ''}</span></p>`,
+      s.memo && `<p class="row"><span class="k">메모</span><span>${esc(s.memo)}</span></p>`,
+    ].filter(Boolean).join('');
+    const p = s.path ? esc(s.path) : '';
+    return `
+    <article class="sub${s.active ? '' : ' off'}${s.active && dd <= 3 ? ' soon' : ''}${s.pending ? ' pending' : ''}">
+      <header>
+        <b class="nm">${esc(s.name)}</b>${s.category ? `<span class="cat">${esc(s.category)}</span>` : ''}
+        <span class="price">${won(s.price)}<small>/${per}</small></span>
+        ${s.pending ? '<em class="pd">반영 중</em>' : ''}
+      </header>
+      ${rows}
+      ${p ? `<footer>
+        <button type="button" class="pbtn sm" data-edit="${p}">✎ 고치기</button>
+        ${s.active ? `<button type="button" class="pbtn sm" data-end="${p}">⏹ 구독 종료</button>` : `<button type="button" class="pbtn sm" data-resume="${p}">↺ 다시 구독</button>`}
+      </footer>` : ''}
+    </article>`;
+  };
+
+  const draw = () => {
+    const list = all();
+    const on = list.filter((s) => s.active).sort((a, b) => nextBill(a).localeCompare(nextBill(b)) || a.name.localeCompare(b.name));
+    const off = list.filter((s) => !s.active).sort((a, b) => (b.ended ?? '').localeCompare(a.ended ?? '') || a.name.localeCompare(b.name));
+    root.querySelectorAll<HTMLElement>('[data-tab]').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === tab)));
+    const cur = tab === 'on' ? on : off;
+    $('list').innerHTML = cur.length
+      ? cur.map(card).join('')
+      : `<p class="empty">${tab === 'on' ? '구독 중인 서비스가 없어요. 위 ✏️ 구독 추가로 등록해 보세요' : '종료한 구독이 없어요'}</p>`;
+  };
+  root.querySelectorAll<HTMLElement>('[data-tab]').forEach((t) => t.addEventListener('click', () => { tab = t.dataset.tab as 'on' | 'off'; draw(); }));
+
+  /* ── 쓰기 양식 ── */
+  const form = $<HTMLFormElement>('sform');
+  const f = (n: string) => form.elements.namedItem(n) as HTMLInputElement;
+  const draftKey = 'draft.subs';
+  let editPath = '';
+  const showEnded = () => { $('ended-wrap').hidden = !f('isEnded').checked; if (f('isEnded').checked && !f('ended').value) f('ended').value = todayKey(); };
+  const hint = () => {
+    const d = f('nextDate').value;
+    if (!d) { $('hint').textContent = '다음 결제일을 고르면 그 날짜를 기준으로 매월/매년 결제일이 정해져요.'; return; }
+    const m = Number(d.slice(5, 7)), day = Number(d.slice(8));
+    $('hint').textContent = f('cycle').value === 'yearly' ? `→ 매년 ${m}월 ${day}일에 결제` : `→ 매월 ${day}일에 결제`;
+  };
+  const read = () => {
+    const v = (n: string) => f(n).value.trim();
+    const nd = v('nextDate'), price = v('price') === '' ? NaN : Math.round(Number(v('price')));
+    const cycle = (v('cycle') === 'yearly' ? 'yearly' : 'monthly') as S['cycle'];
+    const ended = f('isEnded').checked;
+    return {
+      name: v('name'), price, cycle, nextDate: nd,
+      billingDay: nd ? Number(nd.slice(8)) : 0, billingMonth: nd && cycle === 'yearly' ? Number(nd.slice(5, 7)) : undefined,
+      category: v('category') || undefined, method: v('method') || undefined, start: v('start') || undefined,
+      active: !ended, ended: ended ? v('ended') || todayKey() : undefined, memo: v('memo') || undefined,
+    };
+  };
+  const fill = (x: Partial<S> & { nextDate?: string }) => {
+    form.reset();
+    (['name', 'category', 'method', 'start', 'ended', 'memo'] as const).forEach((k) => (f(k).value = (x[k] as string) ?? ''));
+    f('price').value = x.price != null && Number.isFinite(x.price) ? String(x.price) : '';
+    f('cycle').value = x.cycle ?? 'monthly';
+    f('nextDate').value = x.nextDate ?? (x.billingDay ? nextBill(x as S) : '');
+    f('isEnded').checked = x.active === false;
+    showEnded(); hint();
+  };
+  const setEditing = (p: string) => { editPath = p; $('editing').hidden = !p; $('submit').textContent = p ? '💾 고친 내용 저장' : '💾 저장하기'; $('writer').querySelector('summary')!.textContent = p ? '✏️ 구독 고치기' : '✏️ 구독 추가'; };
+  const saveDraft = () => save(draftKey, { ...read(), editPath });
+  const refresh = () => { $('notoken').hidden = !!getToken(); $('err').textContent = ''; };
+  const toFile = (x: S) => [
+    `name: ${yq(x.name)}`, x.category && `category: ${yq(x.category)}`, `price: ${x.price}`, `cycle: ${x.cycle}`,
+    `billingDay: ${x.billingDay}`, x.cycle === 'yearly' && x.billingMonth && `billingMonth: ${x.billingMonth}`,
+    x.method && `method: ${yq(x.method)}`, x.start && `start: ${x.start}`,
+    `active: ${x.active}`, !x.active && x.ended && `ended: ${x.ended}`, x.memo && `memo: ${yq(x.memo)}`,
+  ].filter(Boolean).join('\n') + '\n';
+  const clean = (x: S): S => { const o = { ...x } as S & { nextDate?: string; pending?: boolean }; delete o.nextDate; delete o.pending; if (o.cycle !== 'yearly') delete o.billingMonth; if (o.active) delete o.ended; return o; };
+
+  const toast = (m: string) => { const t = document.querySelector<HTMLElement>('[data-toast]')!; t.textContent = m; t.hidden = false; setTimeout(() => (t.hidden = true), 4000); };
+  /** 파일 하나 저장 + 반영 중 목록에 넣기 */
+  const write = async (x: S, path: string, isNew: boolean, msg: string) => {
+    const data = clean(x);
+    if (isNew) await createFile(repo, path, toFile(data), msg); else await updateFile(repo, path, toFile(data), msg);
+    save(PKEY, [...load<(S & { at: number })[]>(PKEY, []).filter((p) => p.path !== path), { ...data, path, at: Date.now() }]);
+  };
+
+  const dr = load<(ReturnType<typeof read> & { editPath?: string }) | null>(draftKey, null);
+  fill((dr ?? {}) as Partial<S>); setEditing(dr?.editPath ?? ''); refresh();
+  if (dr && (dr.name || dr.memo)) ($('writer') as HTMLDetailsElement).open = true;
+  form.addEventListener('input', () => { showEnded(); hint(); saveDraft(); });
+  form.addEventListener('focusin', () => ($('notoken').hidden = !!getToken()));
+  $('reset').addEventListener('click', () => { save(draftKey, null); fill({}); setEditing(''); refresh(); });
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const x = read(), err = $('err');
+    if (!x.name) { err.textContent = '서비스 이름을 적어 주세요 📦'; f('name').focus(); return; }
+    if (!Number.isFinite(x.price) || x.price < 0) { err.textContent = '가격을 적어 주세요 💳'; f('price').focus(); return; }
+    if (!x.nextDate) { err.textContent = '다음 결제일을 골라 주세요 📅'; f('nextDate').focus(); return; }
+    if (!getToken()) { err.textContent = '🔑 GitHub 연결이 필요해요. 쓴 내용은 임시 저장돼 있어요.'; $('notoken').hidden = false; return; }
+    const btn = $<HTMLButtonElement>('submit'); const label = btn.textContent; btn.disabled = true; btn.textContent = '저장 중…';
+    try {
+      const path = editPath || `src/content/subscriptions/${todayKey()}-${uid()}.yaml`;
+      await write(x as S, path, !editPath, `구독: ${x.name}${editPath ? ' (수정)' : ''}`);
+      save(draftKey, null); fill({}); setEditing(''); ($('writer') as HTMLDetailsElement).open = false;
+      tab = x.active ? 'on' : 'off';
+      draw(); toast('💾 구독을 저장했어요! 1~2분 뒤 사이트에 완전히 반영돼요');
+    } catch (x2) { err.textContent = (x2 as Error).message === 'NO_TOKEN' ? '🔑 GitHub 연결이 필요해요.' : (x2 as Error).message; }
+    finally { btn.disabled = false; if (btn.textContent === '저장 중…') btn.textContent = label; }
   });
+
+  /* ── 카드 버튼: 고치기 / 구독 종료 / 다시 구독 ── */
+  root.addEventListener('click', async (ev) => {
+    const b = (ev.target as HTMLElement).closest<HTMLButtonElement>('[data-edit],[data-end],[data-resume]'); if (!b) return;
+    const path = b.dataset.edit ?? b.dataset.end ?? b.dataset.resume!;
+    const s = all().find((x) => x.path === path); if (!s) return;
+    if (b.dataset.edit) {
+      fill(s); setEditing(path); saveDraft(); refresh();
+      const w = $('writer') as HTMLDetailsElement; w.open = true; w.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    if (!getToken()) { toast('🔑 먼저 설정 › GitHub 연결이 필요해요'); return; }
+    const ending = !!b.dataset.end;
+    if (ending && !confirm(`'${s.name}' 구독을 오늘(${dot(todayKey())}) 날짜로 종료할까요?`)) return;
+    const label = b.textContent; b.disabled = true; b.textContent = '저장 중…';
+    try {
+      const next: S = ending ? { ...s, active: false, ended: todayKey() } : { ...s, active: true, ended: undefined };
+      await write(next, path, false, `구독: ${s.name} ${ending ? '종료' : '다시 구독'}`);
+      draw(); toast(ending ? `⏹ ${s.name} 구독을 종료로 옮겼어요` : `↺ ${s.name}을(를) 다시 구독 중으로 옮겼어요`);
+    } catch (x2) { toast((x2 as Error).message === 'NO_TOKEN' ? '🔑 GitHub 연결이 필요해요.' : (x2 as Error).message); b.disabled = false; b.textContent = label; }
+  });
+  draw();
 </script>
+
 <style>
-  .sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 22px; }
-  .sum div { border: 2px solid #555; border-radius: 8px; padding: 8px 12px; background: linear-gradient(#fff, #f3f3f3); box-shadow: 2px 2px 0 #bbb; }
-  .sum div:first-child { background: linear-gradient(#fff, var(--pink-soft)); border-color: var(--pink-deep); }
-  .sum small { display: block; color: var(--mute); font-size: 11px; }
-  .sum b { font: 400 18px var(--pixel); }
-  .subs { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .subs th { font: 400 11px var(--pixel); color: var(--pink-deep); background: var(--pink-soft); text-align: left; padding: 4px 8px; }
-  .subs td { padding: 6px 8px; border-bottom: 1px dashed #e6e6e6; }
-  .subs small { color: var(--mute); }
-  .subs :global(em) { font: normal 11px var(--pixel); color: var(--mute); }
-  .subs :global(.soon em) { color: var(--pink-deep); }
-  @media (max-width: 860px) { .subs th:nth-child(2), .subs td:nth-child(2) { display: none; } .sum b { font-size: 14px; } }
+  .writer { margin: 0 0 18px; }
+  .writer > summary { display: inline-block; list-style: none; cursor: pointer; margin-bottom: 10px; }
+  .writer > summary::-webkit-details-marker { display: none; }
+  .sform { display: flex; flex-direction: column; gap: 12px; border: 2px dashed var(--pink); border-radius: 10px; padding: 14px 16px; background: var(--pink-soft); }
+  fieldset { border: 1.5px solid #f3cfd9; border-radius: 8px; padding: 8px 12px 12px; margin: 0; background: #fff; display: flex; flex-direction: column; gap: 8px; }
+  legend { font: 12px var(--pixel); color: var(--pink-deep); padding: 0 4px; }
+  legend small { font: 11px var(--font); color: var(--mute); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px 12px; }
+  label { display: flex; flex-direction: column; gap: 3px; font: 11px var(--pixel); color: var(--pink-deep); }
+  label small { font: 10.5px var(--font); color: var(--mute); }
+  .chk { justify-content: flex-end; }
+  .chk span { display: flex; align-items: center; gap: 6px; font: 13px var(--font); color: var(--ink); padding: 6px 0; cursor: pointer; }
+  .chk input { width: 16px; height: 16px; accent-color: var(--pink-deep); }
+  input, select { font: 14px var(--font); color: var(--ink); border: 2px solid #d4d4d4; border-radius: 6px; padding: 6px 8px; background: #fff; min-width: 0; }
+  input:focus, select:focus { outline: none; border-color: var(--pink-deep); }
+  .hint { margin: 0; font-size: 12px; color: var(--mute); }
+  :global(.pbtn.sm) { font-size: 11px; padding: 2px 8px; box-shadow: 1px 1px 0 #bbb; border-width: 1.5px; align-self: flex-start; }
+  .notoken { margin: 0; padding: 8px 10px; border: 1.5px dashed var(--pink); border-radius: 8px; background: #fff; font-size: 12.5px; }
+  .err { margin: 0; min-height: 1.2em; font-size: 12.5px; color: var(--pink-deep); }
+  .foot { display: flex; justify-content: flex-end; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .editing { margin-right: auto; font: 11px var(--pixel); color: var(--pink-deep); }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: -2px; position: relative; z-index: 1; }
+  .tab { font: 13px var(--pixel); padding: 6px 14px; border: 2px solid #555; border-bottom: none; border-radius: 8px 8px 0 0; background: #eee; color: #777; cursor: pointer; }
+  .tab[aria-selected='true'] { background: var(--pink-soft); color: var(--pink-deep); border-color: var(--pink-deep); }
+  .list { display: grid; gap: 10px; }
+  :global(.subp .sub) { border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 14px; background: #fff; display: flex; flex-direction: column; gap: 5px; font-size: 13px; }
+  :global(.subp .sub.soon) { border-color: var(--pink-deep); background: linear-gradient(#fff, var(--pink-soft)); }
+  :global(.subp .sub.pending) { border-style: dashed; border-color: var(--pink); }
+  :global(.subp .sub.off) { background: #f6f6f6; color: #777; }
+  :global(.subp .sub header) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+  :global(.subp .sub .nm) { font: 400 15px var(--pixel); color: var(--ink); }
+  :global(.subp .sub.off .nm) { color: #888; text-decoration: line-through; text-decoration-color: #bbb; }
+  :global(.subp .sub .cat) { font: 10px var(--pixel); background: #3a3a3a; color: #fff; border-radius: 3px; padding: 0 6px; }
+  :global(.subp .sub.off .cat) { background: #aaa; }
+  :global(.subp .sub .price) { margin-left: auto; font: 400 14px var(--pixel); }
+  :global(.subp .sub .price small) { color: var(--mute); font-size: 11px; }
+  :global(.subp .sub .pd) { font: normal 10px var(--pixel); color: #fff; background: var(--pink); border-radius: 3px; padding: 0 5px; }
+  :global(.subp .sub .row) { margin: 0; display: grid; grid-template-columns: 64px 1fr; gap: 8px; align-items: baseline; }
+  :global(.subp .sub .k) { font: 11px var(--pixel); color: var(--pink-deep); }
+  :global(.subp .sub.off .k) { color: #999; }
+  :global(.subp .sub .row small) { color: var(--mute); }
+  :global(.subp .sub .dd) { font: normal 12px var(--pixel); color: var(--mute); margin-left: 2px; }
+  :global(.subp .sub.soon .dd) { color: var(--pink-deep); }
+  :global(.subp .sub footer) { display: flex; justify-content: flex-end; gap: 6px; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; background: #3a3a3a; color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 13px; box-shadow: 0 4px 14px #0003; }
 </style>

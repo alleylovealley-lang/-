@@ -169,13 +169,16 @@ const money = defineCollection({
 const subscriptions = defineCollection({
   loader: yaml('subscriptions'),
   schema: z.object({
-    name: z.string(),
-    price: z.number(),
-    cycle: z.enum(['monthly', 'yearly']).default('monthly'),
-    billingDay: z.number().min(1).max(31),
-    billingMonth: z.number().min(1).max(12).optional(),
+    name: z.string(), // 서비스 이름
+    price: z.number(), // 한 번 결제 금액
+    cycle: z.enum(['monthly', 'yearly']).default('monthly'), // 매월 / 매년
+    billingDay: z.number().min(1).max(31), // 결제일 (며칠)
+    billingMonth: z.number().min(1).max(12).optional(), // 매년 결제일 경우 몇 월
     category: z.string().optional(),
-    active: z.boolean().default(true),
+    method: z.string().optional(), // 결제 수단 (예: 신용카드)
+    start: date.optional(), // 구독 시작일
+    active: z.boolean().default(true), // 구독 중이면 true, 종료했으면 false
+    ended: date.optional(), // 구독 종료일
     memo: z.string().optional(),
   }),
 });
