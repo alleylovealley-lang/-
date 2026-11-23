@@ -21,7 +21,7 @@
 
 ## 사이트 안에서 바로 쓰기
 
-홈의 **✏️ 오늘 일기 쓰기 / 💸 지출 기록 / 💰 수입 기록** 버튼으로 쓰면 GitHub 저장소에 파일로 바로 저장되고, 1~2분 뒤 사이트에 반영돼요.
+**RECORD › 일기** 페이지 맨 위 양식이나 홈의 **✏️ 오늘의 기록 쓰기 / 💸 지출 기록 / 💰 수입 기록** 버튼으로 쓰면 GitHub 저장소에 파일로 바로 저장되고, 1~2분 뒤 사이트에 반영돼요.
 
 처음 한 번만 **ETC › SETTINGS › GITHUB**에서 열쇠(Fine-grained token, 이 저장소의 `Contents: Read and write` 권한)를 연결하면 돼요. 만드는 법은 설정 화면에 단계별로 적혀 있어요. 열쇠는 그 브라우저에만 저장되고, 백업 파일에는 들어가지 않아요.
 
@@ -31,7 +31,7 @@
 
 | 메뉴 | 폴더 | 형식 |
 | --- | --- | --- |
-| RECORD › 일기 | `src/content/diary/` | `.md` |
+| RECORD › 일기 | `src/content/diary/` | `.md` — `line`(한 줄 정리), `done`(오늘 한 일 목록), `mood`, `weather` |
 | RECORD › 스크랩북 | `src/content/scrapbook/` | `.md` — `kind: image / link / quote` |
 | RECORD › 메모 | `src/content/memo/` | `.md` — `tags: [백업]`이면 백업 메모 |
 | LIFE › 일정 | `src/content/schedule/` | `.yaml` — `dday: true`면 D-Day |

@@ -9,14 +9,16 @@ const date = z.coerce.date();
 
 /* ───────── RECORD · 기록 ───────── */
 
-/** DIARY — 날짜별 일기 */
+/** DIARY — 하루 마무리 기록 (본문 = 덧붙이는 말, 없어도 돼요) */
 const diary = defineCollection({
   loader: md('diary'),
   schema: z.object({
     title: z.string(),
     date,
-    mood: z.string().optional(), // 그날의 기분 (예: ☁ 몽글몽글)
-    weather: z.string().optional(),
+    mood: z.string().optional(), // 그날의 기분 (예: 😊 좋음)
+    weather: z.string().optional(), // 날씨 이모지
+    line: z.string().optional(), // 한 줄 정리
+    done: z.array(z.string()).default([]), // 오늘 한 일
     cover: z.string().optional(), // 썸네일 이미지 경로
     tags,
     draft: z.boolean().default(false),
