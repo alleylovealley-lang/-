@@ -3,89 +3,211 @@ import Base from '../../layouts/Base.astro';
 import GameShell from '../../components/GameShell.astro';
 ---
 <Base title="FISHING · 낚시터">
-  <GameShell en="FISHING" ko="낚시터" desc="찌가 흔들리고 ❗가 뜨면 재빨리 낚아올려요! 잡은 물고기는 팔아서 코인으로 바꿀 수 있어요.">
-    <div class="pond" data-pond>
-      <div class="sky">☁️ <span class="sun">☀️</span> ☁️</div>
-      <div class="water">
-        <span class="bob" data-bob hidden>🔴</span>
-        <span class="alert" data-alert hidden>❗</span>
-        <span class="f f1">🐟</span><span class="f f2">🐠</span>
-      </div>
+  <GameShell en="FISHING" ko="낚시터" desc="찌가 흔들리고 ❗가 뜨면 재빨리 낚아올려요! 시간대(낮·밤)에 따라 나오는 물고기가 달라요. 스페이스바로도 할 수 있어요.">
+    <div class="stage">
+      <canvas width="192" height="108" data-canvas aria-label="픽셀 낚시터 화면"></canvas>
+      <span class="phase" data-phase></span>
     </div>
     <p class="msg" data-msg aria-live="polite">던지기를 눌러 낚싯대를 던져보세요 🎣</p>
     <div class="acts">
-      <button type="button" class="pbtn pink" data-cast>🎣 던지기</button>
+      <button type="button" class="pbtn pink big" data-cast>🎣 던지기</button>
       <button type="button" class="pbtn" data-sell>💰 모두 팔기</button>
     </div>
     <h3>🪣 바구니 <small data-bucket-sum></small></h3>
     <div class="bucket" data-bucket></div>
     <h3>📖 도감 <small data-dex-count></small></h3>
+    <div class="filter" role="group" aria-label="도감 보기">
+      <button type="button" data-df="all" aria-pressed="true">전체</button>
+      <button type="button" data-df="1" aria-pressed="false">★ 일반</button>
+      <button type="button" data-df="2" aria-pressed="false">★★ 희귀</button>
+      <button type="button" data-df="3" aria-pressed="false">★★★ 전설</button>
+    </div>
     <div class="dex" data-dex></div>
   </GameShell>
 </Base>
+
 <script>
-  import { load, save, addCoins } from '../../lib/client';
-  const FISH = [
-    { id: 'crucian', e: '🐟', n: '붕어', w: 40, p: 5 }, { id: 'shrimp', e: '🦐', n: '새우', w: 18, p: 6 },
-    { id: 'tropical', e: '🐠', n: '열대어', w: 18, p: 10 }, { id: 'crab', e: '🦀', n: '꽃게', w: 9, p: 15 },
-    { id: 'puffer', e: '🐡', n: '복어', w: 9, p: 18 }, { id: 'squid', e: '🦑', n: '오징어', w: 6, p: 22 },
-    { id: 'octopus', e: '🐙', n: '문어', w: 4, p: 30 }, { id: 'boot', e: '👢', n: '헌 장화', w: 7, p: 0 },
-    { id: 'ribbon', e: '🎀', n: '리본 상자', w: 2, p: 50 }, { id: 'whale', e: '🐋', n: '아기 고래', w: 1, p: 100 },
-  ];
-  const $ = (s: string) => document.querySelector<HTMLElement>(`[data-${s}]`)!;
-  let bucket = load<string[]>('fish.bucket', []);
+  import { load, save, addCoins, esc } from '../../lib/client';
+  import { FISH, RARITY, WHEN, phaseNow, rollFish, rollSize, drawSprite, spriteSize, spriteURL, type Fish, type Phase } from '../../lib/fish';
+
+  const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector<T>(`[data-${s}]`)!;
+  const cv = $<HTMLCanvasElement>('canvas'); const g = cv.getContext('2d')!;
+  const W = 192, H = 108, SEA = 62;
+  const byId = (id: string) => FISH.find((f) => f.id === id);
+
+  /* ── 저장 데이터 (예전 기록도 이어받기) ── */
+  type Catch = { id: string; cm: number };
+  let bucket = load<Catch[] | null>('fish.bucket2', null) ?? load<string[]>('fish.bucket', []).filter(byId).map((id) => ({ id, cm: rollSize(byId(id)!) }));
   let dex = load<Record<string, number>>('fish.dex', {});
-  let state: 'idle' | 'wait' | 'bite' = 'idle'; let timer = 0;
+  let best = load<Record<string, number>>('fish.best', {});
+  const persist = () => { save('fish.bucket2', bucket); save('fish.bucket', bucket.map((c) => c.id)); save('fish.dex', dex); save('fish.best', best); };
+
+  /* ── 상태 ── */
+  type State = 'idle' | 'cast' | 'wait' | 'bite' | 'catch' | 'miss';
+  let state: State = 'idle', stateAt = 0, timer = 0, biteWindow = 1000;
+  let hooked: Fish | null = null, caught: Fish | null = null;
+  let phase: Phase = phaseNow();
+  const BX = 116; // 찌 위치
+  const setState = (s: State) => { state = s; stateAt = performance.now(); };
   const say = (m: string) => ($('msg').textContent = m);
-  const pick = () => { let r = Math.random() * FISH.reduce((s, f) => s + f.w, 0); for (const f of FISH) { if ((r -= f.w) < 0) return f; } return FISH[0]; };
-  const draw = () => {
-    const sum = bucket.reduce((s, id) => s + (FISH.find((f) => f.id === id)?.p ?? 0), 0);
-    $('bucket').innerHTML = bucket.length ? bucket.map((id) => { const f = FISH.find((x) => x.id === id)!; return `<span title="${f.n} ${f.p}코인">${f.e}</span>`; }).join('') : '<span class="none">아직 비어 있어요</span>';
-    $('bucket-sum').textContent = `${bucket.length}마리 · ${sum}코인어치`;
-    $('dex').innerHTML = FISH.map((f) => dex[f.id] ? `<div class="card"><b>${f.e}</b>${f.n}<small>${dex[f.id]}마리 · ${f.p}🪙</small></div>` : `<div class="card no"><b>❔</b>???<small>미발견</small></div>`).join('');
-    $('dex-count').textContent = `${Object.keys(dex).length}/${FISH.length}`;
-    ($('sell') as HTMLButtonElement).disabled = !bucket.length;
+  const castBtn = $<HTMLButtonElement>('cast');
+
+  /* ── 그리기 도구 ── */
+  const px = (x: number, y: number, c: string, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), w, h); };
+  const line = (x0: number, y0: number, x1: number, y1: number, c: string) => {
+    x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+    const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let e = dx + dy;
+    for (;;) { px(x0, y0, c); if (x0 === x1 && y0 === y1) break; const e2 = 2 * e; if (e2 >= dy) { e += dy; x0 += sx; } if (e2 <= dx) { e += dx; y0 += sy; } }
   };
-  const castBtn = $('cast') as HTMLButtonElement;
-  const reset = () => { state = 'idle'; clearTimeout(timer); $('bob').hidden = true; $('alert').hidden = true; $('bob').classList.remove('shake'); castBtn.textContent = '🎣 던지기'; };
-  castBtn.addEventListener('click', () => {
-    if (state === 'idle') {
-      state = 'wait'; $('bob').hidden = false; castBtn.textContent = '⬆ 낚아올리기'; say('기다리는 중… 🌊');
-      timer = window.setTimeout(() => {
-        state = 'bite'; $('alert').hidden = false; $('bob').classList.add('shake'); say('❗ 지금이야!');
-        timer = window.setTimeout(() => { reset(); say('놓쳤어요… 😢 다시 던져볼까요?'); }, 900);
-      }, 1500 + Math.random() * 3500);
-    } else if (state === 'wait') { reset(); say('너무 빨랐어요! 물고기가 도망갔어요 💦'); }
-    else { const f = pick(); reset(); bucket.push(f.id); dex[f.id] = (dex[f.id] ?? 0) + 1; save('fish.bucket', bucket); save('fish.dex', dex); say(`${f.e} ${f.n}을(를) 낚았어요!${f.p >= 30 ? ' ✨대박✨' : ''}`); draw(); }
+  const disc = (cx: number, cy: number, r: number, c: string) => { for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (x * x + y * y <= r * r + r * 0.6) px(cx + x, cy + y, c); };
+  const PAL = {
+    day: { sky: ['#fdeef3', '#fef4f7', '#ffffff'], hill: '#d9d9d9', sea: ['#bcd6e6', '#cfe3ef'], hi: '#ffffff', cloud: '#ffffff', sun: '#ffd34d', rod: '#5a4a3a', str: '#8a8a8a' },
+    dusk: { sky: ['#f3a5bf', '#f7c4cf', '#fde3c8'], hill: '#c9a0b0', sea: ['#e8b8c8', '#f3cfd9'], hi: '#fff2f6', cloud: '#fde3ec', sun: '#ff9e7a', rod: '#5a4a3a', str: '#7a5a6a' },
+    night: { sky: ['#24243a', '#2c2c46', '#35355a'], hill: '#1f2436', sea: ['#2b3550', '#34405a'], hi: '#6a7aa0', cloud: '#4a4a66', sun: '#f6f0d8', rod: '#c9a88a', str: '#cfcfe8' },
+  };
+  const stars = Array.from({ length: 26 }, (_, i) => [(i * 73) % W, (i * 29) % 46, i % 3]);
+  const shadows = [{ x: 60, y: 80, v: 0.12, w: 9 }, { x: 150, y: 94, v: -0.08, w: 12 }, { x: 10, y: 100, v: 0.06, w: 7 }];
+  const KID = ['..ppp....', '.ppppp...', 'pppppppp.', '..kkk....', '..kek....', '..kkk....', '.wwwww...', 'wwwwwwk..', '.wwwww...', '.nnnnn...', '.nn.nn...', '.oo.oo...'];
+  const KCOL: Record<string, string> = { p: '#e0709a', k: '#ffd8c2', e: '#3a3a3a', w: '#ffffff', n: '#6a6a6a', o: '#3a3a3a' };
+
+  const draw = (t: number) => {
+    const P = PAL[phase];
+    // 하늘
+    for (let y = 0; y < SEA; y++) px(0, y, P.sky[Math.min(2, Math.floor((y / SEA) * 3))], W, 1);
+    if (phase === 'night') stars.forEach(([x, y, k]) => px(x, y, (Math.floor(t / 600) + k) % 3 ? '#cfcfe8' : '#ffffff'));
+    // 해 / 달
+    if (phase === 'night') { disc(160, 16, 6, P.sun); disc(163, 14, 5, P.sky[0]); }
+    else disc(160, phase === 'dusk' ? 40 : 16, 7, P.sun);
+    // 구름
+    for (const [cx, cy, s] of [[30, 12, 1], [110, 20, 1.3], [180, 8, 0.9]]) {
+      const x = ((cx + t * 0.004 * s) % (W + 40)) - 20;
+      px(x, cy, P.cloud, 14 * s, 3); px(x + 3 * s, cy - 2, P.cloud, 7 * s, 2); px(x + 2, cy + 3, P.cloud, 10 * s, 1);
+    }
+    // 먼 언덕
+    for (let x = 0; x < W; x++) { const h = 4 + Math.round(3 * Math.sin(x / 17) + 2 * Math.sin(x / 7)); px(x, SEA - h, P.hill, 1, h); }
+    // 바다 + 물결
+    for (let y = SEA; y < H; y++) px(0, y, P.sea[(y >> 2) % 2], W, 1);
+    for (let row = SEA + 3; row < H; row += 6) for (let x = ((t / 90 + row * 3) % 14) - 14; x < W; x += 14) px(x, row, P.hi, 4, 1);
+    // 물고기 그림자
+    g.globalAlpha = phase === 'night' ? 0.35 : 0.18;
+    for (const s of shadows) { s.x += s.v; if (s.x > W + 20) s.x = -20; if (s.x < -20) s.x = W + 20; px(s.x, s.y, '#1a2a3a', s.w, 3); px(s.x + 1, s.y - 1, '#1a2a3a', s.w - 2, 5); px(s.v > 0 ? s.x - 3 : s.x + s.w, s.y, '#1a2a3a', 3, 3); }
+    g.globalAlpha = 1;
+    // 선착장
+    for (const x of [6, 28, 50]) px(x, 56, '#6e5a4a', 3, H - 56);
+    px(0, 52, '#9a7a62', 60, 3); px(0, 55, '#7a5e4a', 60, 1);
+    for (let x = 0; x < 60; x += 10) px(x, 52, '#6e5a4a', 1, 3);
+    // 캐릭터
+    KID.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] !== '.') px(34 + i, 40 + j, KCOL[r[i]]); });
+    // 낚싯대
+    const tipX = 70, tipY = 26;
+    line(41, 47, tipX, tipY, P.rod);
+    // 찌 위치
+    const now = performance.now(), dt = now - stateAt;
+    let bx = BX, by = SEA - 1;
+    if (state === 'cast') { const k = Math.min(1, dt / 350); bx = tipX + (BX - tipX) * k; by = tipY + (SEA - 1 - tipY) * k - Math.sin(k * Math.PI) * 18; if (k >= 1) beginWait(); }
+    if (state === 'wait') by += Math.round(Math.sin(now / 300));
+    if (state === 'bite') { by += 2 + Math.round(Math.sin(now / 40) * 1.5); bx += Math.round(Math.sin(now / 55)); }
+    if (state !== 'idle' && state !== 'miss' && state !== 'catch') {
+      line(tipX, tipY, bx, by, P.str);
+      px(bx - 1, by - 2, '#e0709a', 3, 2); px(bx - 1, by, '#ffffff', 3, 2); px(bx, by - 3, '#3a3a3a');
+      if (state === 'wait' || state === 'bite') { const r = (now / 120) % 8; px(bx - r, SEA + 1, P.hi, 1, 1); px(bx + 2 + r, SEA + 1, P.hi, 1, 1); }
+    } else line(tipX, tipY, tipX, tipY + 10, P.str);
+    // 입질 "!"
+    if (state === 'bite') { const yy = by - 16; px(bx - 4, yy, '#3a3a3a', 9, 12); px(bx - 3, yy + 1, '#ffffff', 7, 10); px(bx - 1, yy + 2, '#e0709a', 3, 5); px(bx - 1, yy + 8, '#e0709a', 3, 2); }
+    // 낚은 물고기 점프
+    if (state === 'catch' && caught) {
+      const k = Math.min(1, dt / 700), s = caught.big ? 1 : 2, { w, h } = spriteSize(caught);
+      const fx = BX - (w * s) / 2, fy = SEA - 6 - h * s - Math.sin(k * Math.PI * 0.5) * 22;
+      drawSprite(g, caught, fx, fy, s);
+      if (dt > 200) for (let i = 0; i < 6; i++) { const a = i + now / 300; px(BX + Math.cos(a) * (w * s * 0.7 + 4), fy + (h * s) / 2 + Math.sin(a) * (h * s * 0.7 + 4), caught.r === 3 ? '#ffd34d' : '#ffffff', 2, 2); }
+      for (let i = -2; i <= 2; i++) px(BX + i * 4, SEA - 1 - Math.abs(i), P.hi, 2, 1);
+      if (dt > 2200) setState('idle');
+    }
+    if (state === 'miss' && dt > 600) setState('idle');
+  };
+
+  const loop = (t: number) => { draw(t); requestAnimationFrame(loop); };
+  requestAnimationFrame(loop);
+
+  /* ── 게임 진행 ── */
+  const showPhase = () => {
+    phase = phaseNow();
+    $('phase').textContent = phase === 'day' ? '☀ 낮 낚시' : phase === 'dusk' ? '🌇 노을 낚시 (낮·밤 물고기 모두!)' : '☾ 밤 낚시';
+  };
+  const beginWait = () => {
+    setState('wait'); say('기다리는 중… 🌊');
+    hooked = rollFish(phase); biteWindow = RARITY[hooked.r].window;
+    timer = window.setTimeout(() => {
+      setState('bite'); say('❗ 지금이야! 낚아올려요!');
+      timer = window.setTimeout(() => { setState('miss'); hooked = null; castBtn.textContent = '🎣 던지기'; say('놓쳤어요… 😢 다시 던져볼까요?'); }, biteWindow);
+    }, 1500 + Math.random() * 3500);
+  };
+  const act = () => {
+    if (state === 'idle' || state === 'miss' || state === 'catch') {
+      clearTimeout(timer); showPhase(); setState('cast'); castBtn.textContent = '⬆ 낚아올리기'; say('휙~ 🎣');
+    } else if (state === 'cast' || state === 'wait') {
+      clearTimeout(timer); setState('miss'); hooked = null; castBtn.textContent = '🎣 던지기'; say('너무 빨랐어요! 물고기가 도망갔어요 💦');
+    } else if (state === 'bite' && hooked) {
+      clearTimeout(timer);
+      const f = hooked, cm = rollSize(f); hooked = null; caught = f;
+      const isNew = !dex[f.id], isBest = cm > (best[f.id] ?? 0);
+      bucket.push({ id: f.id, cm }); dex[f.id] = (dex[f.id] ?? 0) + 1; if (isBest) best[f.id] = cm; persist();
+      setState('catch'); castBtn.textContent = '🎣 던지기';
+      say(`${RARITY[f.r].star} ${f.n} ${cm}cm 낚았어요!${isNew ? ' 🆕 도감 등록!' : isBest ? ' 📏 최고 기록!' : ''}${f.r === 3 ? ' ✨전설✨' : ''}`);
+      drawLists();
+    }
+  };
+  castBtn.addEventListener('click', act);
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Space' || /input|textarea|select|button/i.test((e.target as HTMLElement).tagName)) return;
+    e.preventDefault(); act();
   });
   $('sell').addEventListener('click', () => {
-    const sum = bucket.reduce((s, id) => s + (FISH.find((f) => f.id === id)?.p ?? 0), 0);
-    addCoins(sum); bucket = []; save('fish.bucket', bucket); say(`모두 팔아서 ${sum}코인을 벌었어요 💰`); draw();
+    const sum = bucket.reduce((s, c) => s + (byId(c.id)?.p ?? 0), 0);
+    addCoins(sum); bucket = []; persist(); say(`모두 팔아서 ${sum}코인을 벌었어요 💰`); drawLists();
   });
-  draw();
+
+  /* ── 바구니 · 도감 ── */
+  let dexFilter = 'all';
+  const drawLists = () => {
+    const sum = bucket.reduce((s, c) => s + (byId(c.id)?.p ?? 0), 0);
+    $('bucket').innerHTML = bucket.length
+      ? bucket.map((c) => { const f = byId(c.id)!; return `<img src="${spriteURL(f, 2)}" alt="${esc(f.n)}" title="${esc(f.n)} ${c.cm}cm · ${f.p}코인">`; }).join('')
+      : '<span class="none">아직 비어 있어요</span>';
+    $('bucket-sum').textContent = `${bucket.length}마리 · ${sum}코인어치`;
+    $<HTMLButtonElement>('sell').disabled = !bucket.length;
+    const found = FISH.filter((f) => dex[f.id]).length;
+    $('dex-count').textContent = `${found}/${FISH.length}종 발견`;
+    $('dex').innerHTML = FISH.filter((f) => dexFilter === 'all' || String(f.r) === dexFilter).map((f) => dex[f.id]
+      ? `<div class="card r${f.r}"><img src="${spriteURL(f, 3)}" alt=""><b>${esc(f.n)}</b><span class="st">${RARITY[f.r].star} ${WHEN[f.t].icon}</span><small>${dex[f.id]}마리 · 최고 ${best[f.id] ?? '-'}cm</small><small>${f.p}🪙</small></div>`
+      : `<div class="card no"><img src="${spriteURL(f, 3, true)}" alt=""><b>???</b><span class="st">${RARITY[f.r].star}</span><small>${WHEN[f.t].hint}</small></div>`).join('');
+  };
+  document.querySelectorAll<HTMLButtonElement>('[data-df]').forEach((b) => b.addEventListener('click', () => {
+    dexFilter = b.dataset.df!; document.querySelectorAll('[data-df]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); drawLists();
+  }));
+  showPhase(); persist(); drawLists();
+  setInterval(showPhase, 60_000);
 </script>
+
 <style>
-  .pond { border: 3px solid #3a3a3a; border-radius: 12px; overflow: hidden; height: 200px; display: grid; grid-template-rows: 60px 1fr; }
-  .sky { background: linear-gradient(#fdeef3, #fff); display: flex; justify-content: space-around; align-items: center; font-size: 22px; }
-  .water { position: relative; background: repeating-linear-gradient(170deg, #cfe3ef 0 14px, #bcd6e6 14px 28px); overflow: hidden; }
-  .bob { position: absolute; left: 48%; top: 24px; font-size: 20px; }
-  .bob.shake { animation: shake 0.12s linear infinite; }
-  .alert { position: absolute; left: calc(48% + 6px); top: -2px; font-size: 22px; animation: pop 0.3s; }
-  .f { position: absolute; font-size: 22px; opacity: 0.45; animation: swim 9s linear infinite; }
-  .f1 { top: 70px; } .f2 { top: 100px; animation-duration: 13s; animation-direction: reverse; }
-  @keyframes swim { from { left: -10%; } to { left: 110%; } }
-  @keyframes shake { 50% { transform: translateY(5px) rotate(8deg); } }
-  @keyframes pop { from { transform: scale(0); } }
+  .stage { position: relative; border: 3px solid #3a3a3a; border-radius: 10px; overflow: hidden; background: #fdeef3; }
+  canvas { display: block; width: 100%; aspect-ratio: 16 / 9; image-rendering: pixelated; image-rendering: crisp-edges; }
+  .phase { position: absolute; top: 6px; left: 8px; font: 11px var(--pixel); background: #3a3a3acc; color: #fff; border-radius: 4px; padding: 1px 8px; }
   .msg { font: 400 19px var(--hand); text-align: center; min-height: 1.5em; margin: 10px 0; }
   .acts { display: flex; gap: 8px; justify-content: center; }
+  .pbtn.big { font-size: 14px; padding: 8px 22px; }
   h3 { font: 400 13px var(--pixel); color: var(--pink-deep); margin: 18px 0 6px; }
   h3 small { color: var(--mute); }
-  .bucket { min-height: 34px; border: 1.5px dashed var(--line); border-radius: 8px; padding: 4px 8px; font-size: 22px; display: flex; flex-wrap: wrap; gap: 2px; }
-  .bucket :global(.none) { font-size: 12px; color: var(--mute); align-self: center; }
-  .dex { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
-  .dex :global(.card) { border: 1.5px solid var(--pink); border-radius: 8px; padding: 6px; text-align: center; font-size: 12px; background: var(--pink-soft); display: flex; flex-direction: column; }
-  .dex :global(.card b) { font-size: 26px; font-weight: 400; }
+  .bucket { min-height: 40px; border: 1.5px dashed var(--line); border-radius: 8px; padding: 6px 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .bucket :global(img) { image-rendering: pixelated; height: 20px; }
+  .bucket :global(.none) { font-size: 12px; color: var(--mute); }
+  .dex { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+  .dex :global(.card) { border: 1.5px solid var(--pink); border-radius: 8px; padding: 8px 6px; text-align: center; font-size: 12px; background: var(--pink-soft); display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .dex :global(.card img) { image-rendering: pixelated; height: 36px; max-width: 100%; object-fit: contain; margin-bottom: 4px; }
+  .dex :global(.card .st) { font: 10px var(--pixel); color: var(--pink-deep); }
   .dex :global(.card small) { font: 10px var(--pixel); color: var(--mute); }
+  .dex :global(.card.r2) { background: #fff; border-color: var(--pink-deep); }
+  .dex :global(.card.r3) { background: linear-gradient(#fff, #fff6d6); border: 2px solid #e8b84a; }
   .dex :global(.card.no) { background: #f6f6f6; border-color: var(--line); color: var(--mute); }
-  @media (prefers-reduced-motion: reduce) { .f { animation: none; } }
+  .dex :global(.card.no img) { opacity: 0.55; }
 </style>
