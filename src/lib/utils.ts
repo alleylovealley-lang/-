@@ -61,7 +61,10 @@ export async function scheduleJson() {
   const td = (await getTodos())
     .filter((t) => t.data.due)
     .map((t) => ({ title: t.data.title, date: isoDate(t.data.due!), type: 'todo', done: t.data.done, dday: false, time: undefined, memo: t.data.memo }));
-  return [...ev, ...td].sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? '').localeCompare(b.time ?? ''));
+  const hp = (await getHospital())
+    .filter((h) => h.data.next)
+    .map((h) => ({ title: `🏥 ${h.data.name}${h.data.department ? ` ${h.data.department}` : ''} 예약`, date: isoDate(h.data.next!), type: 'hospital', done: false, dday: true, time: h.data.nextTime, memo: h.data.nextMemo }));
+  return [...ev, ...td, ...hp].sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? '').localeCompare(b.time ?? ''));
 }
 
 /** 퀘스트 레벨 계산: 완료한 할 일의 포인트 합계 */

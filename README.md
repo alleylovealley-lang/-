@@ -37,7 +37,7 @@
 | LIFE › 일정 | `src/content/schedule/` | `.yaml` — `dday: true`면 D-Day |
 | LIFE › 할 일 | `src/content/todo/` | `.yaml` — `done: true`면 완료(퀘스트 포인트) |
 | LIFE › 식단·운동 | `src/content/diet/` | `.yaml` — `kind: breakfast / lunch / dinner / snack / exercise` |
-| LIFE › 병원 | `src/content/hospital/` | `.yaml` |
+| LIFE › 병원 | `src/content/hospital/` | `.yaml` — 사이트의 ✏️ 병원 기록 쓰기로 작성 (방문일·시간, 진료 내용, `prescriptions` 처방 목록, `next`·`nextTime` 다음 예약) |
 | LIFE › 습관 | `src/content/habit/` | `.yaml` (습관 목록, 체크는 사이트에서) |
 | REVIEW › 도서·애니·영화·드라마 | `src/content/reviews/` | `.md` — `kind: book / anime / movie / drama` |
 | REVIEW › 플레이리스트 | `src/content/playlist/` | `.yaml` — 애플뮤직 공유 링크 |
