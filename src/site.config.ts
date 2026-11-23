@@ -88,7 +88,7 @@ export const SITE = {
       children: [
         { label: 'PET', ko: '다마고치', href: '/game/pet', desc: '나만의 펫 키우기' },
         { label: 'FISHING', ko: '낚시터', href: '/game/fishing', desc: '물고기 낚고 도감 채우기' },
-        { label: 'BR 31', ko: '배스킨라빈스 31', href: '/game/31', desc: '31을 말하면 지는 숫자 게임' },
+        { label: 'BR 31', ko: '배스킨라빈스 31', href: '/game/31', desc: '픽셀 아이스크림 가게 경영' },
         { label: 'ROULETTE', ko: '베팅 룰렛', href: '/game/roulette', desc: '코인을 걸고 룰렛 돌리기' },
       ],
     },
