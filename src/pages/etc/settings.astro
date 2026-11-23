@@ -73,11 +73,11 @@ import { SITE } from '../../site.config';
   const $ = (s: string) => document.querySelector<HTMLElement>(`[data-${s}]`)!;
   const say = (m: string) => ($('msg').textContent = m);
   const LABEL: Record<string, string> = {
-    coins: '🪙 코인', bonus: '🎁 출석 보너스', pet: '🐣 다마고치', 'fish.bucket': '🪣 낚시 바구니', 'fish.dex': '📖 낚시 도감',
+    coins: '🪙 코인', bonus: '🎁 출석 보너스', pet: '🐣 다마고치', 'fish.bucket': '🪣 낚시 바구니', 'fish.bucket2': '🪣 낚시 바구니(크기)', 'fish.dex': '📖 낚시 도감', 'fish.best': '📏 낚시 최고 기록',
     'br31.record': '🔢 31 전적', 'br31.level': '🔢 31 난이도', 'roulette.hist': '🎡 룰렛 기록', habit: '✔ 습관 체크',
     moodboard: '🎨 자유 무드보드', 'gh.token': '🔑 GitHub 열쇠', 'nav-folded': '☰ 접은 메뉴', zoom: '🔠 글자 크기', marquee: '✧ 흐르는 문구',
   };
-  const GAME = ['coins', 'bonus', 'pet', 'fish.bucket', 'fish.dex', 'br31.record', 'br31.level', 'roulette.hist'];
+  const GAME = ['coins', 'bonus', 'pet', 'fish.bucket', 'fish.bucket2', 'fish.dex', 'fish.best', 'br31.record', 'br31.level', 'roulette.hist'];
   const keys = () => { const out: string[] = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i)!; if (k.startsWith('hong.')) out.push(k.slice(5)); } } catch {} return out.sort(); };
   const drawTable = () => {
     const ks = keys();
