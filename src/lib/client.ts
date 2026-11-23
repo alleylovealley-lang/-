@@ -31,3 +31,15 @@ export function dailyBonus() {
   addCoins(20);
   return 20;
 }
+
+/** 사이트에서 지운 기록 — 사이트에 반영(빌드)될 때까지 화면에서 숨겨 두기. kind: 'diary' | 'hospital' | 'subs' */
+type Gone = { path: string; at: number };
+export const hiddenPaths = (kind: string, builtPaths: (string | undefined)[]) => {
+  const list = load<Gone[]>(`deleted.${kind}`, []).filter((d) => builtPaths.includes(d.path) && Date.now() - d.at < 86_400_000);
+  save(`deleted.${kind}`, list);
+  return new Set(list.map((d) => d.path));
+};
+export const markDeleted = (kind: string, path: string) => {
+  save(`deleted.${kind}`, [...load<Gone[]>(`deleted.${kind}`, []).filter((d) => d.path !== path), { path, at: Date.now() }]);
+  save(`pending.${kind}`, load<{ path?: string }[]>(`pending.${kind}`, []).filter((p) => p.path !== path));
+};

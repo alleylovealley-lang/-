@@ -74,8 +74,8 @@ const methods = [...new Set(subs.map((s) => s.method).filter(Boolean))];
 </Base>
 
 <script>
-  import { todayKey, load, save, esc, daysUntil, dLabel } from '../../lib/client';
-  import { getToken, createFile, updateFile, yq, uid, type Repo } from '../../lib/github';
+  import { todayKey, load, save, esc, daysUntil, dLabel, hiddenPaths, markDeleted } from '../../lib/client';
+  import { getToken, createFile, updateFile, deleteFile, yq, uid, type Repo } from '../../lib/github';
 
   type S = {
     name: string; price: number; cycle: 'monthly' | 'yearly'; billingDay: number; billingMonth?: number;
@@ -117,7 +117,8 @@ const methods = [...new Set(subs.map((s) => s.method).filter(Boolean))];
     const pend = load<(S & { at: number })[]>(PKEY, []).filter((p) => Date.now() - p.at < 20 * 60_000);
     const fresh = pend.filter((p) => { const b = built.find((x) => x.path === p.path); return !b || !same(b, p); });
     save(PKEY, fresh);
-    return [...built.filter((b) => !fresh.some((p) => p.path === b.path)), ...fresh.map((p) => ({ ...p, pending: true }))];
+    const gone = hiddenPaths('subs', built.map((b) => b.path));
+    return [...built.filter((b) => !gone.has(b.path!) && !fresh.some((p) => p.path === b.path)), ...fresh.map((p) => ({ ...p, pending: true }))];
   };
 
   let tab: 'on' | 'off' = 'on';
@@ -146,6 +147,7 @@ const methods = [...new Set(subs.map((s) => s.method).filter(Boolean))];
       ${p ? `<footer>
         <button type="button" class="pbtn sm" data-edit="${p}">✎ 고치기</button>
         ${s.active ? `<button type="button" class="pbtn sm" data-end="${p}">⏹ 구독 종료</button>` : `<button type="button" class="pbtn sm" data-resume="${p}">↺ 다시 구독</button>`}
+        <button type="button" class="pbtn sm del" data-del="${p}">🗑 삭제</button>
       </footer>` : ''}
     </article>`;
   };
@@ -241,8 +243,8 @@ const methods = [...new Set(subs.map((s) => s.method).filter(Boolean))];
 
   /* ── 카드 버튼: 고치기 / 구독 종료 / 다시 구독 ── */
   root.addEventListener('click', async (ev) => {
-    const b = (ev.target as HTMLElement).closest<HTMLButtonElement>('[data-edit],[data-end],[data-resume]'); if (!b) return;
-    const path = b.dataset.edit ?? b.dataset.end ?? b.dataset.resume!;
+    const b = (ev.target as HTMLElement).closest<HTMLButtonElement>('[data-edit],[data-end],[data-resume],[data-del]'); if (!b) return;
+    const path = b.dataset.edit ?? b.dataset.end ?? b.dataset.resume ?? b.dataset.del!;
     const s = all().find((x) => x.path === path); if (!s) return;
     if (b.dataset.edit) {
       fill(s); setEditing(path); saveDraft(); refresh();
@@ -250,6 +252,17 @@ const methods = [...new Set(subs.map((s) => s.method).filter(Boolean))];
       return;
     }
     if (!getToken()) { toast('🔑 먼저 설정 › GitHub 연결이 필요해요'); return; }
+    if (b.dataset.del) {
+      if (!confirm(`'${s.name}' 구독 기록을 완전히 지울까요? 되돌릴 수 없어요.\n(그만둔 구독을 남겨 두려면 '구독 종료'를 써 주세요)`)) return;
+      b.disabled = true; b.textContent = '지우는 중…';
+      try {
+        await deleteFile(repo, path, `구독: ${s.name} 삭제`);
+        markDeleted('subs', path);
+        if (editPath === path) { save(draftKey, null); fill({}); setEditing(''); }
+        draw(); toast(`🗑 ${s.name} 기록을 지웠어요`);
+      } catch (x2) { toast((x2 as Error).message); b.disabled = false; b.textContent = '🗑 삭제'; }
+      return;
+    }
     const ending = !!b.dataset.end;
     if (ending && !confirm(`'${s.name}' 구독을 오늘(${dot(todayKey())}) 날짜로 종료할까요?`)) return;
     const label = b.textContent; b.disabled = true; b.textContent = '저장 중…';
@@ -307,6 +320,7 @@ const methods = [...new Set(subs.map((s) => s.method).filter(Boolean))];
   :global(.subp .sub .row small) { color: var(--mute); }
   :global(.subp .sub .dd) { font: normal 12px var(--pixel); color: var(--mute); margin-left: 2px; }
   :global(.subp .sub.soon .dd) { color: var(--pink-deep); }
-  :global(.subp .sub footer) { display: flex; justify-content: flex-end; gap: 6px; }
+  :global(.subp .sub footer) { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+  :global(.subp .sub .del) { color: var(--mute); }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; background: #3a3a3a; color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 13px; box-shadow: 0 4px 14px #0003; }
 </style>

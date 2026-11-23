@@ -84,8 +84,8 @@ const TYPES = ['💊 알약', '💉 주사', '🧴 연고', '💧 물약', '🩹
 </Base>
 
 <script>
-  import { todayKey, load, save, esc, daysUntil, dLabel } from '../../lib/client';
-  import { getToken, createFile, updateFile, yq, uid, type Repo } from '../../lib/github';
+  import { todayKey, load, save, esc, daysUntil, dLabel, hiddenPaths, markDeleted } from '../../lib/client';
+  import { getToken, createFile, updateFile, deleteFile, yq, uid, type Repo } from '../../lib/github';
 
   type Rx = { type: string; name: string; dose?: string };
   type V = { date: string; time?: string; name: string; department?: string; reason?: string; result?: string; prescriptions: Rx[]; cost?: number; next?: string; nextTime?: string; nextMemo?: string; path?: string; pending?: boolean };
@@ -103,7 +103,8 @@ const TYPES = ['💊 알약', '💉 주사', '🧴 연고', '💧 물약', '🩹
     const pend = load<(V & { at: number })[]>('pending.hospital', []).filter((p) => Date.now() - p.at < 20 * 60_000);
     const fresh = pend.filter((p) => { const b = built.find((x) => x.path === p.path); return !b || JSON.stringify({ ...b, path: 0 }) !== JSON.stringify({ ...p, path: 0, at: undefined, pending: undefined }); });
     save('pending.hospital', fresh);
-    return [...built.filter((b) => !fresh.some((p) => p.path === b.path)), ...fresh.map((p) => ({ ...p, pending: true }))]
+    const gone = hiddenPaths('hospital', built.map((b) => b.path));
+    return [...built.filter((b) => !gone.has(b.path!) && !fresh.some((p) => p.path === b.path)), ...fresh.map((p) => ({ ...p, pending: true }))]
       .sort((a, b) => b.date.localeCompare(a.date) || (b.time ?? '').localeCompare(a.time ?? ''));
   };
 
@@ -119,7 +120,7 @@ const TYPES = ['💊 알약', '💉 주사', '🧴 연고', '💧 물약', '🩹
       ${v.prescriptions.length ? `<div class="row"><span class="k">처방</span><ul class="rx">${v.prescriptions.map((r) => `<li>${ICON[r.type] ?? '📋'} <b>${esc(r.name)}</b>${r.dose ? ` <small>${esc(r.dose)}</small>` : ''}</li>`).join('')}</ul></div>` : ''}
       ${v.cost != null ? `<p class="row"><span class="k">비용</span><span>${won(v.cost)}</span></p>` : ''}
       ${v.next ? `<p class="row nextrow"><span class="k">예약</span><span>${v.next.replaceAll('-', '.')} (${dow(v.next)})${v.nextTime ? ` ${v.nextTime}` : ''}${v.nextMemo ? ` · ${esc(v.nextMemo)}` : ''} <em class="dd">${dLabel(v.next)}</em></span></p>` : ''}
-      <footer>${v.path ? `<button type="button" class="pbtn sm" data-edit="${esc(v.path)}">✎ 고치기</button>` : ''}</footer>
+      <footer>${v.path ? `<button type="button" class="pbtn sm" data-edit="${esc(v.path)}">✎ 고치기</button><button type="button" class="pbtn sm del" data-del="${esc(v.path)}">🗑 삭제</button>` : ''}</footer>
     </article>`;
 
   const draw = () => {
@@ -189,7 +190,21 @@ const TYPES = ['💊 알약', '💉 주사', '🧴 연고', '💧 물약', '🩹
   form.addEventListener('focusin', () => ($('notoken').hidden = !!getToken()));
   $('rx-add').addEventListener('click', () => { addRx(); (rxList.lastElementChild?.querySelector('[name="rx-name"]') as HTMLInputElement)?.focus(); });
   $('reset').addEventListener('click', () => { save(draftKey, null); fill({}); setEditing(''); refresh(); });
-  root.addEventListener('click', (ev) => {
+  root.addEventListener('click', async (ev) => {
+    const d = (ev.target as HTMLElement).closest<HTMLButtonElement>('[data-del]');
+    if (d) {
+      const v = all().find((x) => x.path === d.dataset.del); if (!v) return;
+      if (!getToken()) { toast('🔑 먼저 설정 › GitHub 연결이 필요해요'); return; }
+      if (!confirm(`${v.date} ${v.name} 기록을 완전히 지울까요? 되돌릴 수 없어요.`)) return;
+      d.disabled = true; d.textContent = '지우는 중…';
+      try {
+        await deleteFile(repo, v.path!, `병원: ${v.date} ${v.name} 삭제`);
+        markDeleted('hospital', v.path!);
+        if (editPath === v.path) { save(draftKey, null); fill({}); setEditing(''); }
+        draw(); toast('🗑 병원 기록을 지웠어요');
+      } catch (x2) { toast((x2 as Error).message); d.disabled = false; d.textContent = '🗑 삭제'; }
+      return;
+    }
     const b = (ev.target as HTMLElement).closest<HTMLElement>('[data-edit]'); if (!b) return;
     const v = all().find((x) => x.path === b.dataset.edit); if (!v) return;
     fill(v); setEditing(v.path!); saveDraft(); refresh();
@@ -258,7 +273,8 @@ const TYPES = ['💊 알약', '💉 주사', '🧴 연고', '💧 물약', '🩹
   :global(.hosp .visit .rx) { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
   :global(.hosp .visit .rx small) { color: var(--mute); }
   :global(.hosp .visit .dd) { font: normal 11px var(--pixel); color: var(--pink-deep); margin-left: 4px; }
-  :global(.hosp .visit footer) { display: flex; justify-content: flex-end; }
+  :global(.hosp .visit footer) { display: flex; justify-content: flex-end; gap: 6px; }
+  :global(.hosp .visit .del) { color: var(--mute); }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; background: #3a3a3a; color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 13px; box-shadow: 0 4px 14px #0003; }
   @media (max-width: 860px) {
     .rx-list :global(.rx-row) { grid-template-columns: 1fr 32px; padding-bottom: 6px; border-bottom: 1px dashed #eee; }
