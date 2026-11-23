@@ -1,41 +1,447 @@
 ---
 import Base from '../../layouts/Base.astro';
 import PageHead from '../../components/PageHead.astro';
-import { url, getReferences } from '../../lib/utils';
-const refs = await getReferences();
-const albums = [...Map.groupBy(refs, (r) => r.data.album)];
+import { SITE } from '../../site.config';
+import { url, getReferences, isoDate } from '../../lib/utils';
+
+const albums = (await getReferences()).map((a) => ({
+  id: (a.filePath ?? a.id).split('/').pop()!.replace(/\.ya?ml$/, ''),
+  path: a.filePath,
+  title: a.data.title,
+  desc: a.data.desc,
+  cover: a.data.cover,
+  created: a.data.created ? isoDate(a.data.created) : undefined,
+  images: a.data.images.map((i) => ({ src: i.src, memo: i.memo, source: i.source, added: i.added ? isoDate(i.added) : undefined })),
+}));
 ---
-<Base title="REFERENCE · 레퍼런스" description="종류별 레퍼런스 앨범">
-  <PageHead en="REFERENCE" ko="레퍼런스" desc="종류별로 모아둔 레퍼런스 앨범." />
-  {refs.length === 0 && <p class="empty">아직 레퍼런스가 없어요</p>}
-  <div class="filter" role="group" aria-label="앨범" hidden={refs.length === 0}>
-    <button type="button" data-a="all" aria-pressed="true">ALL ({refs.length})</button>
-    {albums.map(([a, xs]) => <button type="button" data-a={a} aria-pressed="false">{a} ({xs.length})</button>)}
-  </div>
-  {albums.map(([a, xs]) => (
-    <section class="album" data-a={a}>
-      <h2>📁 {a}</h2>
-      <div class="grid">{xs.map((r) => (
-        <a href={r.data.source || url(r.data.image)} target="_blank" rel="noopener" class="cell" title={r.data.title}>
-          <img src={url(r.data.image)} alt={r.data.title ?? ''} loading="lazy" />
-          {r.data.title && <span>{r.data.title}</span>}
-        </a>
-      ))}</div>
+<Base title="REFERENCE · 레퍼런스" description="주제별 레퍼런스 앨범">
+  <meta slot="head" name="robots" content="noindex" />
+  <PageHead en="REFERENCE" ko="레퍼런스" desc="주제별 앨범에 참고할 이미지를 모아 둬요." />
+
+  <div class="refp" data-albums={JSON.stringify(albums)} data-repo={JSON.stringify(SITE.repo)} data-base={url('/')}>
+    <p class="notoken" data-notoken hidden>🔑 앨범을 만들거나 이미지를 올리려면 먼저 <a href={url('/etc/settings#github')}>설정 › GitHub 연결</a>이 필요해요.</p>
+
+    <!-- 앨범 목록 -->
+    <section data-view="list">
+      <div class="bar">
+        <button type="button" class="pbtn pink" data-new>＋ 새 앨범</button>
+        <input type="search" class="search" data-search placeholder="🔍 앨범 찾기" aria-label="앨범 찾기" />
+      </div>
+      <form class="mini" data-newform hidden novalidate>
+        <label>앨범 주제 <input type="text" name="title" maxlength="30" placeholder="예: 손 포즈, 노을 색감, 방 인테리어" /></label>
+        <label>설명 <small>(선택)</small><input type="text" name="desc" maxlength="80" placeholder="예: 그림 그릴 때 참고할 손 모양" /></label>
+        <p class="err" data-err-new aria-live="polite"></p>
+        <div class="foot"><button type="button" class="pbtn" data-cancel-new>취소</button><button type="submit" class="pbtn pink">📁 만들기</button></div>
+      </form>
+      <div class="albums" data-grid-albums></div>
     </section>
-  ))}
+
+    <!-- 앨범 안 -->
+    <section data-view="album" hidden>
+      <div class="ahead">
+        <a class="back" href="#" data-back>‹ 앨범 목록</a>
+        <div class="atitle"><h2 data-title></h2><span class="cnt" data-count></span></div>
+        <p class="adesc" data-desc></p>
+        <div class="tools">
+          <button type="button" class="pbtn sm" data-rename>✎ 이름·설명</button>
+          <button type="button" class="pbtn sm del" data-del-album>🗑 앨범 삭제</button>
+        </div>
+      </div>
+      <form class="mini" data-editform hidden novalidate>
+        <label>앨범 주제 <input type="text" name="title" maxlength="30" /></label>
+        <label>설명 <small>(선택)</small><input type="text" name="desc" maxlength="80" /></label>
+        <p class="err" data-err-edit aria-live="polite"></p>
+        <div class="foot"><button type="button" class="pbtn" data-cancel-edit>취소</button><button type="submit" class="pbtn pink">💾 저장</button></div>
+      </form>
+      <div class="drop" data-drop>
+        <p>🖼 이미지를 여기로 끌어다 놓거나 <button type="button" class="pbtn sm pink" data-pick>＋ 이미지 고르기</button></p>
+        <p class="sub">복사한 이미지는 <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>V</kbd>로 붙여넣기 · 여러 장 한 번에 OK</p>
+        <input type="file" accept="image/*" multiple hidden data-file />
+        <details class="byurl">
+          <summary>🔗 이미지 주소로 추가</summary>
+          <form data-urlform novalidate><input type="url" name="u" placeholder="https://…/image.jpg" aria-label="이미지 주소" /><button type="submit" class="pbtn sm">추가</button></form>
+        </details>
+        <p class="progress" data-progress aria-live="polite"></p>
+      </div>
+      <div class="masonry" data-grid-images></div>
+    </section>
+
+    <!-- 크게 보기 -->
+    <dialog class="lb" data-lb>
+      <div class="lb-top"><span data-lb-n></span><button type="button" class="x" data-lb-close aria-label="닫기">✕</button></div>
+      <div class="lb-img">
+        <button type="button" class="nav prev" data-lb-prev aria-label="이전">‹</button>
+        <img data-lb-img alt="" />
+        <button type="button" class="nav next" data-lb-next aria-label="다음">›</button>
+      </div>
+      <div class="lb-info" data-lb-info></div>
+      <form class="lb-edit" data-lb-edit hidden novalidate>
+        <label>메모 <textarea name="memo" rows="2" maxlength="200" placeholder="예: 손가락 관절 위치 참고"></textarea></label>
+        <label>출처 링크 <input type="url" name="source" placeholder="https://" /></label>
+        <div class="foot"><button type="button" class="pbtn sm" data-lb-cancel>취소</button><button type="submit" class="pbtn sm pink">💾 저장</button></div>
+      </form>
+      <div class="lb-tools">
+        <button type="button" class="pbtn sm" data-lb-memo>✎ 메모·출처</button>
+        <button type="button" class="pbtn sm" data-lb-cover>★ 대표 이미지로</button>
+        <a class="pbtn sm" data-lb-open target="_blank" rel="noopener">↗ 원본</a>
+        <button type="button" class="pbtn sm del" data-lb-del>🗑 삭제</button>
+      </div>
+    </dialog>
+  </div>
+  <div class="toast" data-toast role="status" hidden></div>
 </Base>
+
 <script>
-  const btns = document.querySelectorAll<HTMLButtonElement>('.filter button');
-  btns.forEach((b) => b.addEventListener('click', () => {
-    btns.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-    document.querySelectorAll<HTMLElement>('.album').forEach((s) => (s.hidden = b.dataset.a !== 'all' && s.dataset.a !== b.dataset.a));
-  }));
+  import { todayKey, load, save, esc, hiddenPaths, markDeleted } from '../../lib/client';
+  import { getToken, commitFiles, blobToB64, yq, uid, type Repo, type Change } from '../../lib/github';
+
+  type Img = { src: string; memo?: string; source?: string; added?: string };
+  type A = { id: string; path: string; title: string; desc?: string; cover?: string; created?: string; images: Img[]; pending?: boolean };
+
+  const root = document.querySelector<HTMLElement>('.refp')!;
+  const $ = <T extends HTMLElement = HTMLElement>(s: string) => root.querySelector<T>(`[data-${s}]`)!;
+  const repo: Repo = JSON.parse(root.dataset.repo!);
+  const BASE = root.dataset.base!;
+  const RAW = `https://raw.githubusercontent.com/${repo.owner}/${repo.name}/${repo.branch}/public/`;
+  const built: A[] = JSON.parse(root.dataset.albums || '[]');
+  const builtSrc = new Set(built.flatMap((a) => a.images.map((i) => i.src)));
+  const local = new Map<string, string>(); // 방금 올린 이미지 → 미리보기 주소
+  const PKEY = 'pending.refs';
+
+  /* ── 데이터: 사이트 기록 + 방금 저장한 것 − 지운 것 ── */
+  const norm = (a: Partial<A>) => JSON.stringify({
+    title: a.title, desc: a.desc || undefined, cover: a.cover || undefined, created: a.created,
+    images: (a.images ?? []).map((i) => ({ src: i.src, memo: i.memo || undefined, source: i.source || undefined, added: i.added })),
+  });
+  const all = (): A[] => {
+    const pend = load<(A & { at: number })[]>(PKEY, []).filter((p) => Date.now() - p.at < 30 * 60_000);
+    const fresh = pend.filter((p) => { const b = built.find((x) => x.path === p.path); return !b || norm(b) !== norm(p); });
+    save(PKEY, fresh);
+    const gone = hiddenPaths('refs', built.map((b) => b.path));
+    return [...built.filter((b) => !gone.has(b.path) && !fresh.some((p) => p.path === b.path)), ...fresh.map((p) => ({ ...p, pending: true }))]
+      .sort((a, b) => (b.created ?? '').localeCompare(a.created ?? '') || a.title.localeCompare(b.title));
+  };
+  const show = (src: string) => /^https?:\/\//.test(src) ? src : local.get(src) ?? (builtSrc.has(src) ? BASE + src : RAW + src.split('/').map(encodeURIComponent).join('/'));
+  const coverOf = (a: A) => a.images.find((i) => i.src === a.cover) ?? a.images[0];
+
+  const toYaml = (a: A) => [
+    `title: ${yq(a.title)}`, a.desc && `desc: ${yq(a.desc)}`, a.cover && `cover: ${yq(a.cover)}`, a.created && `created: ${a.created}`,
+    a.images.length ? `images:\n${a.images.map((i) => [`  - src: ${yq(i.src)}`, i.memo && `    memo: ${yq(i.memo)}`, i.source && `    source: ${yq(i.source)}`, i.added && `    added: ${i.added}`].filter(Boolean).join('\n')).join('\n')}` : 'images: []',
+  ].filter(Boolean).join('\n') + '\n';
+
+  const toast = (m: string) => { const t = document.querySelector<HTMLElement>('[data-toast]')!; t.textContent = m; t.hidden = false; clearTimeout((t as any)._t); (t as any)._t = setTimeout(() => (t.hidden = true), 4000); };
+  const needToken = () => { if (getToken()) return false; $('notoken').hidden = false; toast('🔑 먼저 설정 › GitHub 연결이 필요해요'); return true; };
+  const errText = (e: unknown) => ((e as Error).message === 'NO_TOKEN' ? '🔑 GitHub 연결이 필요해요.' : (e as Error).message);
+
+  /** 앨범 파일(+이미지 파일들)을 커밋 하나로 저장 */
+  const commit = async (a: A, extra: Change[], msg: string) => {
+    const clean: A = { id: a.id, path: a.path, title: a.title, desc: a.desc || undefined, cover: a.cover || undefined, created: a.created, images: a.images };
+    await commitFiles(repo, [...extra, { path: a.path, text: toYaml(clean) }], msg);
+    save(PKEY, [...load<(A & { at: number })[]>(PKEY, []).filter((p) => p.path !== a.path), { ...clean, at: Date.now() }]);
+  };
+
+  /* ── 화면 그리기 ── */
+  let cur: A | undefined; // 지금 열려 있는 앨범
+  const currentId = () => decodeURIComponent(location.hash.match(/^#album=(.+)$/)?.[1] ?? '');
+  const drawList = () => {
+    const q = $<HTMLInputElement>('search').value.trim().toLowerCase();
+    const list = all().filter((a) => !q || (a.title + ' ' + (a.desc ?? '')).toLowerCase().includes(q));
+    $('grid-albums').innerHTML = list.length
+      ? list.map((a) => {
+        const c = coverOf(a);
+        return `<a class="album${a.pending ? ' pending' : ''}" href="#album=${encodeURIComponent(a.id)}">
+          <span class="cover">${c ? `<img src="${esc(show(c.src))}" alt="" loading="lazy" />` : '<i>🖼<br>비어 있음</i>'}</span>
+          <span class="meta"><b>📁 ${esc(a.title)}</b><small>${a.images.length}장${a.pending ? ' · <em>반영 중</em>' : ''}</small></span>
+          ${a.desc ? `<span class="d">${esc(a.desc)}</span>` : ''}
+        </a>`;
+      }).join('')
+      : `<p class="empty">${q ? '찾는 앨범이 없어요' : '아직 앨범이 없어요. ＋ 새 앨범으로 레퍼런스 주제를 만들어 보세요'}</p>`;
+  };
+  const drawAlbum = () => {
+    $('title').textContent = `📁 ${cur!.title}`;
+    $('count').textContent = `${cur!.images.length}장${cur!.pending ? ' · 반영 중' : ''}`;
+    $('desc').textContent = cur!.desc ?? ''; $('desc').hidden = !cur!.desc;
+    $('grid-images').innerHTML = cur!.images.length
+      ? cur!.images.map((i, n) => `<button type="button" class="rimg${i.src === cur!.cover ? ' cv' : ''}" data-open="${n}" title="${esc(i.memo ?? '')}">
+          <img src="${esc(show(i.src))}" alt="${esc(i.memo ?? '')}" loading="lazy" />${i.memo ? `<span>${esc(i.memo)}</span>` : ''}${i.src === cur!.cover ? '<em>★</em>' : ''}
+        </button>`).join('')
+      : '<p class="empty">아직 이미지가 없어요. 위에서 이미지를 추가해 보세요</p>';
+  };
+  const route = () => {
+    const id = currentId();
+    cur = id ? all().find((a) => a.id === id) : undefined;
+    $('view="list"').hidden = !!cur; $('view="album"').hidden = !cur;
+    $('editform').hidden = true;
+    if (cur) drawAlbum(); else drawList();
+  };
+  const refreshCur = () => { if (cur) cur = all().find((a) => a.id === cur!.id); route(); };
+  window.addEventListener('hashchange', () => { route(); window.scrollTo({ top: root.offsetTop - 20 }); });
+  $('back').addEventListener('click', (e) => { e.preventDefault(); history.pushState(null, '', location.pathname); route(); });
+  $('search').addEventListener('input', drawList);
+
+  /* ── 새 앨범 ── */
+  const nf = $<HTMLFormElement>('newform');
+  $('new').addEventListener('click', () => { nf.hidden = false; $('notoken').hidden = !!getToken(); (nf.elements.namedItem('title') as HTMLInputElement).focus(); });
+  $('cancel-new').addEventListener('click', () => { nf.reset(); nf.hidden = true; $('err-new').textContent = ''; });
+  nf.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const title = (nf.elements.namedItem('title') as HTMLInputElement).value.trim(), desc = (nf.elements.namedItem('desc') as HTMLInputElement).value.trim();
+    if (!title) { $('err-new').textContent = '앨범 주제를 적어 주세요 📁'; return; }
+    if (!getToken()) { $('err-new').textContent = '🔑 GitHub 연결이 필요해요.'; $('notoken').hidden = false; return; }
+    const btn = nf.querySelector<HTMLButtonElement>('[type="submit"]')!; btn.disabled = true; btn.textContent = '만드는 중…';
+    try {
+      const id = `${todayKey()}-${uid()}`;
+      const a: A = { id, path: `src/content/references/${id}.yaml`, title, desc: desc || undefined, created: todayKey(), images: [] };
+      await commit(a, [], `레퍼런스: 앨범 '${title}' 만들기`);
+      nf.reset(); nf.hidden = true; $('err-new').textContent = '';
+      location.hash = `album=${encodeURIComponent(id)}`;
+      toast('📁 앨범을 만들었어요! 이제 이미지를 넣어 보세요');
+    } catch (e) { $('err-new').textContent = errText(e); }
+    finally { btn.disabled = false; btn.textContent = '📁 만들기'; }
+  });
+
+  /* ── 앨범 이름·설명 / 삭제 ── */
+  const ef = $<HTMLFormElement>('editform');
+  const ef$ = (n: string) => ef.elements.namedItem(n) as HTMLInputElement;
+  $('rename').addEventListener('click', () => { ef$('title').value = cur!.title; ef$('desc').value = cur!.desc ?? ''; ef.hidden = false; ef$('title').focus(); });
+  $('cancel-edit').addEventListener('click', () => { ef.hidden = true; $('err-edit').textContent = ''; });
+  ef.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const title = ef$('title').value.trim();
+    if (!title) { $('err-edit').textContent = '앨범 주제를 적어 주세요 📁'; return; }
+    if (needToken()) return;
+    try { await commit({ ...cur!, title, desc: ef$('desc').value.trim() || undefined }, [], `레퍼런스: 앨범 '${title}' 고치기`); refreshCur(); toast('💾 저장했어요'); }
+    catch (e) { $('err-edit').textContent = errText(e); }
+  });
+  $('del-album').addEventListener('click', async () => {
+    if (needToken()) return;
+    const a = cur!;
+    if (!confirm(`'${a.title}' 앨범과 안에 있는 이미지 ${a.images.length}장을 모두 지울까요? 되돌릴 수 없어요.`)) return;
+    const b = $<HTMLButtonElement>('del-album'); b.disabled = true; b.textContent = '지우는 중…';
+    try {
+      const files = a.images.filter((i) => !/^https?:/.test(i.src)).map((i) => ({ path: `public/${i.src}`, remove: true }));
+      await commitFiles(repo, [...files, { path: a.path, remove: true }], `레퍼런스: 앨범 '${a.title}' 삭제`);
+      markDeleted('refs', a.path);
+      history.pushState(null, '', location.pathname); route(); toast(`🗑 '${a.title}' 앨범을 지웠어요`);
+    } catch (e) { toast(errText(e)); }
+    finally { b.disabled = false; b.textContent = '🗑 앨범 삭제'; }
+  });
+
+  /* ── 이미지 추가: 고르기 / 끌어다 놓기 / 붙여넣기 / 주소 ── */
+  const MAX = 1600;
+  const prep = async (file: File): Promise<{ blob: Blob; ext: string }> => {
+    if (file.type === 'image/gif' && file.size < 4_000_000) return { blob: file, ext: 'gif' };
+    const u = URL.createObjectURL(file);
+    try {
+      const img = new Image(); img.src = u; await img.decode();
+      const s = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+      const ctx = c.getContext('2d')!; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+      const blob = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/jpeg', 0.86));
+      if (!blob) throw new Error();
+      return { blob, ext: 'jpg' };
+    } catch { throw new Error(`'${file.name}'은(는) 열 수 없는 이미지 형식이에요`); }
+    finally { URL.revokeObjectURL(u); }
+  };
+  let busy = false;
+  const addImages = async (files: File[]) => {
+    if (!cur || busy) return;
+    files = files.filter((f) => f.type.startsWith('image/'));
+    if (!files.length) { toast('이미지 파일만 올릴 수 있어요'); return; }
+    if (needToken()) return;
+    if (files.length > 30) { toast('한 번에 30장까지 올릴 수 있어요. 앞의 30장만 올릴게요'); files = files.slice(0, 30); }
+    busy = true; const prog = $('progress');
+    try {
+      const a = cur, stamp = Date.now().toString(36), changes: Change[] = [], imgs: Img[] = [];
+      for (const [n, f] of files.entries()) {
+        prog.textContent = `🖼 이미지 준비 중… (${n + 1}/${files.length})`;
+        const { blob, ext } = await prep(f);
+        const src = `references/${a.id}/${stamp}-${n}.${ext}`;
+        local.set(src, URL.createObjectURL(blob));
+        changes.push({ path: `public/${src}`, base64: await blobToB64(blob) });
+        imgs.push({ src, added: todayKey() });
+      }
+      prog.textContent = `⬆ ${files.length}장 올리는 중…`;
+      await commit({ ...a, images: [...a.images, ...imgs] }, changes, `레퍼런스: '${a.title}'에 ${files.length}장 추가`);
+      refreshCur(); prog.textContent = ''; toast(`🖼 ${files.length}장을 넣었어요! 1~2분 뒤 사이트에 완전히 반영돼요`);
+    } catch (e) { prog.textContent = `⚠ ${errText(e)}`; }
+    finally { busy = false; }
+  };
+  const fileIn = $<HTMLInputElement>('file');
+  $('pick').addEventListener('click', () => { if (!needToken()) fileIn.click(); });
+  fileIn.addEventListener('change', () => { addImages([...(fileIn.files ?? [])]); fileIn.value = ''; });
+  const drop = $('drop');
+  ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, () => drop.classList.remove('over')));
+  drop.addEventListener('drop', (e) => { e.preventDefault(); addImages([...((e as DragEvent).dataTransfer?.files ?? [])]); });
+  document.addEventListener('paste', (e) => {
+    if (!cur || $('view="album"').hidden) return;
+    const t = e.target as HTMLElement; if (t.closest('input, textarea')) return;
+    const files = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith('image/'));
+    if (files.length) { e.preventDefault(); addImages(files); }
+  });
+  const uf = $<HTMLFormElement>('urlform');
+  uf.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const u = (uf.elements.namedItem('u') as HTMLInputElement).value.trim();
+    if (!/^https?:\/\/\S+$/.test(u)) { $('progress').textContent = '⚠ https:// 로 시작하는 이미지 주소를 넣어 주세요'; return; }
+    if (needToken()) return;
+    try {
+      await commit({ ...cur!, images: [...cur!.images, { src: u, source: u, added: todayKey() }] }, [], `레퍼런스: '${cur!.title}'에 이미지 주소 추가`);
+      uf.reset(); $('progress').textContent = ''; refreshCur(); toast('🔗 이미지 주소를 넣었어요');
+    } catch (e) { $('progress').textContent = `⚠ ${errText(e)}`; }
+  });
+
+  /* ── 크게 보기 ── */
+  const lb = $<HTMLDialogElement>('lb');
+  let idx = 0;
+  const drawLb = () => {
+    const i = cur!.images[idx]; if (!i) { lb.close(); return; }
+    $<HTMLImageElement>('lb-img').src = show(i.src);
+    $('lb-n').textContent = `${idx + 1} / ${cur!.images.length}`;
+    const src = i.source ? `<a href="${esc(i.source)}" target="_blank" rel="noopener">출처 ↗ ${esc(i.source.replace(/^https?:\/\//, '').slice(0, 40))}</a>` : '';
+    $('lb-info').innerHTML = i.memo || src ? `${i.memo ? `<p>${esc(i.memo).replace(/\n/g, '<br>')}</p>` : ''}${src}` : '<p class="muted">메모 없음</p>';
+    $<HTMLAnchorElement>('lb-open').href = show(i.src);
+    $('lb-cover').textContent = i.src === cur!.cover ? '★ 대표 이미지' : '☆ 대표 이미지로';
+    $('lb-edit').hidden = true; $('lb-info').hidden = false;
+  };
+  $('grid-images').addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-open]'); if (!b) return;
+    idx = Number(b.dataset.open); drawLb(); lb.showModal();
+  });
+  const step = (d: number) => { idx = (idx + d + cur!.images.length) % cur!.images.length; drawLb(); };
+  $('lb-prev').addEventListener('click', () => step(-1));
+  $('lb-next').addEventListener('click', () => step(1));
+  $('lb-close').addEventListener('click', () => lb.close());
+  lb.addEventListener('click', (e) => { if (e.target === lb) lb.close(); });
+  lb.addEventListener('keydown', (e) => {
+    if ((e.target as HTMLElement).closest('input, textarea')) return;
+    if (e.key === 'ArrowLeft') step(-1); if (e.key === 'ArrowRight') step(1);
+  });
+  const le = $<HTMLFormElement>('lb-edit');
+  $('lb-memo').addEventListener('click', () => {
+    const i = cur!.images[idx];
+    (le.elements.namedItem('memo') as HTMLTextAreaElement).value = i.memo ?? '';
+    (le.elements.namedItem('source') as HTMLInputElement).value = i.source ?? '';
+    le.hidden = false; $('lb-info').hidden = true; (le.elements.namedItem('memo') as HTMLTextAreaElement).focus();
+  });
+  $('lb-cancel').addEventListener('click', drawLb);
+  /** 크게 보기 안에서 앨범 바꾸기 */
+  const lbSave = async (next: A, msg: string, done: string) => {
+    if (needToken()) return;
+    try { await commit(next, [], msg); refreshCur(); if (cur?.images.length) drawLb(); else lb.close(); toast(done); }
+    catch (e) { toast(errText(e)); }
+  };
+  le.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const memo = (le.elements.namedItem('memo') as HTMLTextAreaElement).value.trim() || undefined;
+    const source = (le.elements.namedItem('source') as HTMLInputElement).value.trim() || undefined;
+    const images = cur!.images.map((i, n) => (n === idx ? { ...i, memo, source } : i));
+    lbSave({ ...cur!, images }, `레퍼런스: '${cur!.title}' 메모 고치기`, '💾 메모를 저장했어요');
+  });
+  $('lb-cover').addEventListener('click', () => {
+    const src = cur!.images[idx].src;
+    if (src === cur!.cover) return;
+    lbSave({ ...cur!, cover: src }, `레퍼런스: '${cur!.title}' 대표 이미지`, '★ 대표 이미지로 정했어요');
+  });
+  $('lb-del').addEventListener('click', async () => {
+    if (needToken()) return;
+    const i = cur!.images[idx];
+    if (!confirm('이 이미지를 앨범에서 지울까요? 되돌릴 수 없어요.')) return;
+    const a = cur!, images = a.images.filter((_, n) => n !== idx);
+    try {
+      await commit({ ...a, images, cover: a.cover === i.src ? undefined : a.cover }, /^https?:/.test(i.src) ? [] : [{ path: `public/${i.src}`, remove: true }], `레퍼런스: '${a.title}'에서 이미지 삭제`);
+      refreshCur(); if (idx >= images.length) idx = images.length - 1;
+      if (images.length) drawLb(); else lb.close();
+      toast('🗑 이미지를 지웠어요');
+    } catch (e) { toast(errText(e)); }
+  });
+
+  $('notoken').hidden = true;
+  route();
 </script>
+
 <style>
-  .album { margin-top: 14px; }
-  h2 { font: 400 13px var(--pixel); color: var(--pink-deep); margin: 0 0 6px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
-  .cell { text-decoration: none; font-size: 11.5px; color: var(--mute); }
-  .cell img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; border: 1.5px solid var(--line); display: block; }
-  .cell:hover img { border-color: var(--pink); }
+  .notoken { margin: 0 0 12px; padding: 8px 10px; border: 1.5px dashed var(--pink); border-radius: 8px; background: var(--pink-soft); font-size: 12.5px; }
+  .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .search { margin-left: auto; font: 13px var(--font); border: 2px solid #d4d4d4; border-radius: 6px; padding: 5px 8px; min-width: 0; width: 200px; }
+  .search:focus { outline: none; border-color: var(--pink-deep); }
+  .mini { display: flex; flex-direction: column; gap: 8px; border: 2px dashed var(--pink); border-radius: 10px; padding: 12px 14px; background: var(--pink-soft); margin-bottom: 14px; }
+  .mini label { display: flex; flex-direction: column; gap: 3px; font: 11px var(--pixel); color: var(--pink-deep); }
+  .mini label small { font: 10.5px var(--font); color: var(--mute); }
+  .mini input { font: 14px var(--font); color: var(--ink); border: 2px solid #d4d4d4; border-radius: 6px; padding: 6px 8px; background: #fff; min-width: 0; }
+  .mini input:focus { outline: none; border-color: var(--pink-deep); }
+  .err { margin: 0; min-height: 1.1em; font-size: 12.5px; color: var(--pink-deep); }
+  .mini[hidden], .lb-edit[hidden], .lb-info[hidden] { display: none; }
+  .foot { display: flex; justify-content: flex-end; gap: 8px; }
+  :global(.pbtn.sm) { font-size: 11px; padding: 2px 8px; box-shadow: 1px 1px 0 #bbb; border-width: 1.5px; }
+  :global(.refp .del) { color: var(--mute); }
+
+  /* 앨범 목록 */
+  .albums { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+  :global(.refp .album) { display: flex; flex-direction: column; gap: 4px; text-decoration: none; color: var(--ink); background: #fff; border: 2px solid #555; border-radius: 10px; padding: 8px; box-shadow: 3px 3px 0 #bbb; transition: transform .1s; }
+  :global(.refp .album:hover) { transform: translate(-1px, -1px); border-color: var(--pink-deep); box-shadow: 4px 4px 0 var(--pink); }
+  :global(.refp .album.pending) { border-style: dashed; }
+  :global(.refp .album .cover) { aspect-ratio: 4 / 3; border-radius: 6px; overflow: hidden; background: repeating-linear-gradient(45deg, #f4f4f4 0 8px, #fafafa 8px 16px); display: grid; place-items: center; border: 1px solid var(--line); }
+  :global(.refp .album .cover img) { width: 100%; height: 100%; object-fit: cover; display: block; }
+  :global(.refp .album .cover i) { font: normal 11px var(--pixel); color: var(--mute); text-align: center; line-height: 1.8; }
+  :global(.refp .album .meta) { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; padding: 2px 2px 0; }
+  :global(.refp .album .meta b) { font: 400 13px var(--pixel); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :global(.refp .album .meta small) { font: 10.5px var(--pixel); color: var(--mute); flex-shrink: 0; }
+  :global(.refp .album .meta em) { font-style: normal; color: var(--pink-deep); }
+  :global(.refp .album .d) { font-size: 11.5px; color: #777; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* 앨범 안 */
+  .ahead { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; margin-bottom: 12px; }
+  .back { grid-column: 1 / -1; font: 11px var(--pixel); color: var(--mute); text-decoration: none; }
+  .back:hover { color: var(--pink-deep); }
+  .atitle { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
+  .atitle h2 { margin: 0; font: 400 18px var(--pixel); }
+  .cnt { font: 11px var(--pixel); color: var(--mute); }
+  .adesc { grid-column: 1; margin: 0; font-size: 12.5px; color: #666; }
+  .tools { grid-column: 2; grid-row: 2; display: flex; gap: 6px; }
+  .drop { border: 2px dashed #bbb; border-radius: 10px; padding: 12px 14px; background: #fafafa; text-align: center; margin-bottom: 14px; transition: background .1s, border-color .1s; }
+  .drop.over { border-color: var(--pink-deep); background: var(--pink-soft); }
+  .drop p { margin: 0; font-size: 13px; }
+  .drop .sub { font-size: 11.5px; color: var(--mute); margin-top: 4px; }
+  kbd { font: 10.5px var(--pixel); border: 1px solid #bbb; border-bottom-width: 2px; border-radius: 3px; padding: 0 3px; background: #fff; }
+  .byurl { margin-top: 8px; font-size: 12px; }
+  .byurl summary { cursor: pointer; color: var(--mute); }
+  .byurl form { display: flex; gap: 6px; margin-top: 6px; justify-content: center; }
+  .byurl input { font: 13px var(--font); border: 2px solid #d4d4d4; border-radius: 6px; padding: 4px 8px; width: min(360px, 100%); min-width: 0; }
+  .progress { min-height: 1.2em; margin-top: 6px !important; font-size: 12.5px; color: var(--pink-deep); }
+  .masonry { columns: 4 170px; column-gap: 10px; }
+  :global(.refp .rimg) { display: block; width: 100%; margin: 0 0 10px; padding: 0; border: 1.5px solid var(--line); border-radius: 8px; background: #fff; overflow: hidden; cursor: zoom-in; break-inside: avoid; position: relative; text-align: left; }
+  :global(.refp .rimg:hover) { border-color: var(--pink-deep); }
+  :global(.refp .rimg img) { width: 100%; display: block; min-height: 40px; background: #f3f3f3; }
+  :global(.refp .rimg span) { display: block; padding: 4px 8px; font-size: 11.5px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :global(.refp .rimg em) { position: absolute; top: 6px; left: 6px; font: normal 11px var(--pixel); background: var(--pink-deep); color: #fff; border-radius: 4px; padding: 0 5px; }
+
+  /* 크게 보기 */
+  .lb { width: min(960px, 94vw); max-height: 94vh; padding: 10px 12px 12px; border: 2px solid #333; border-radius: 12px; box-shadow: 6px 6px 0 #0004; }
+  .lb::backdrop { background: #000a; }
+  .lb-top { display: flex; justify-content: space-between; align-items: center; font: 11px var(--pixel); color: var(--mute); margin-bottom: 6px; }
+  .x { border: none; background: none; font-size: 18px; cursor: pointer; color: #555; }
+  .lb-img { position: relative; display: grid; place-items: center; background: #f2f2f2; border-radius: 8px; min-height: 200px; }
+  .lb-img img { max-width: 100%; max-height: 66vh; display: block; object-fit: contain; }
+  .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid #555; background: #fffd; font: 20px var(--pixel); cursor: pointer; line-height: 1; }
+  .nav:hover { border-color: var(--pink-deep); color: var(--pink-deep); }
+  .prev { left: 8px; } .next { right: 8px; }
+  .lb-info { margin: 8px 2px 0; font-size: 13px; }
+  .lb-info :global(p) { margin: 0 0 4px; }
+  .lb-info :global(a) { font-size: 12px; color: var(--pink-deep); word-break: break-all; }
+  .lb-info :global(.muted) { color: var(--mute); font-size: 12px; }
+  .lb-edit { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .lb-edit label { display: flex; flex-direction: column; gap: 3px; font: 11px var(--pixel); color: var(--pink-deep); }
+  .lb-edit textarea, .lb-edit input { font: 13px var(--font); border: 2px solid #d4d4d4; border-radius: 6px; padding: 5px 8px; min-width: 0; resize: vertical; }
+  .lb-tools { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-top: 10px; }
+  .lb-tools a { text-decoration: none; color: inherit; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 60; background: #3a3a3a; color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 13px; box-shadow: 0 4px 14px #0003; }
+  @media (max-width: 860px) {
+    .albums { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .search { width: 100%; margin-left: 0; }
+    .masonry { columns: 2; }
+    .ahead { grid-template-columns: 1fr; }
+    .tools { grid-column: 1; grid-row: auto; }
+  }
 </style>
