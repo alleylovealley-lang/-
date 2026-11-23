@@ -2,7 +2,7 @@
 import { render } from 'astro:content';
 import Base from '../../layouts/Base.astro';
 import Tags from '../../components/Tags.astro';
-import { url, getDiary, formatDate, isoDate, readingTime } from '../../lib/utils';
+import { url, getDiary, formatDate, isoDate } from '../../lib/utils';
 
 export async function getStaticPaths() {
   const entries = await getDiary();
@@ -10,7 +10,7 @@ export async function getStaticPaths() {
 }
 const { entry, newer, older } = Astro.props;
 const { Content } = await render(entry);
-const { title, date, mood, weather, tags } = entry.data;
+const { title, date, mood, weather, tags, line, done } = entry.data;
 ---
 <Base title={title} type="article">
   <article>
@@ -21,9 +21,10 @@ const { title, date, mood, weather, tags } = entry.data;
         <time datetime={isoDate(date)}>{formatDate(date)}</time>
         {weather && <span>{weather}</span>}
         {mood && <span>{mood}</span>}
-        <span>{readingTime(entry.body)}분</span>
       </div>
     </header>
+    {line && <p class="line">“{line}”</p>}
+    {done.length > 0 && <ul class="done">{done.map((d) => <li>{d}</li>)}</ul>}
     <div class="prose"><Content /></div>
     <Tags tags={tags} />
   </article>
@@ -34,3 +35,9 @@ const { title, date, mood, weather, tags } = entry.data;
     </nav>
   )}
 </Base>
+
+<style>
+  .line { margin: 18px 0 8px; font: 400 24px/1.4 var(--hand); }
+  .done { margin: 0; padding: 10px 14px; list-style: none; border: 2px dashed var(--pink); border-radius: 10px; background: var(--pink-soft); font-size: 14px; line-height: 1.9; }
+  .done li::before { content: '✔ '; color: var(--pink-deep); }
+</style>

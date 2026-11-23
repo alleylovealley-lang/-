@@ -1,0 +1,130 @@
+---
+// 하루 마무리 기록 입력 양식 — 일기 페이지와 홈(대화창)에서 같이 써요
+import { SITE } from '../site.config';
+import { url } from '../lib/utils';
+interface Props { id: string }
+const { id } = Astro.props;
+const MOODS = ['😊 좋음', '🥰 행복', '😌 평온', '🙂 보통', '😴 피곤', '😢 슬픔', '😤 화남'];
+const WEATHER = ['☀️', '⛅', '☁️', '🌧️', '❄️'];
+---
+<form class="dform" data-dform={id} data-repo={JSON.stringify(SITE.repo)} novalidate>
+  <p class="notoken" data-notoken hidden>🔑 저장하려면 먼저 <a href={url('/etc/settings#github')}>설정 › GitHub 연결</a>이 필요해요. 쓰던 내용은 이 브라우저에 임시 저장돼요.</p>
+  <div class="row">
+    <label class="date">날짜 <input type="date" name="date" required /></label>
+    <fieldset class="chips weather"><legend>날씨</legend>
+      {WEATHER.map((w) => <label><input type="radio" name="weather" value={w} /><span>{w}</span></label>)}
+    </fieldset>
+  </div>
+  <fieldset class="chips mood"><legend>기분</legend>
+    {MOODS.map((m) => <label><input type="radio" name="mood" value={m} /><span>{m}</span></label>)}
+  </fieldset>
+  <label>오늘 한 일 <small>한 줄에 하나씩</small>
+    <textarea name="done" rows="4" placeholder={'예) 카페에서 책 읽기\n예) 장보기\n예) 친구랑 통화'}></textarea>
+  </label>
+  <label>한 줄 정리 <small>오늘 하루를 한 문장으로</small>
+    <input type="text" name="line" maxlength="120" placeholder="예: 느긋하고 따뜻한 하루였다" />
+  </label>
+  <details class="more">
+    <summary>덧붙이는 말 (선택)</summary>
+    <textarea name="memo" rows="4" placeholder="더 남기고 싶은 생각이나 감정…"></textarea>
+  </details>
+  <p class="err" data-err aria-live="polite"></p>
+  <div class="foot">
+    <span class="editing" data-editing hidden>✎ 기존 기록을 고치는 중</span>
+    <button type="button" class="pbtn" data-reset>지우기</button>
+    <button type="submit" class="pbtn pink" data-submit>💾 저장하기</button>
+  </div>
+</form>
+
+<script>
+  import { todayKey, load, save } from '../lib/client';
+  import { getToken, createFile, updateFile, yq, uid, type Repo } from '../lib/github';
+
+  type DiaryEntry = { date: string; title: string; mood?: string; weather?: string; line?: string; done: string[]; memo?: string; path?: string };
+  const fmt = (d: string) => { const [, m, dd] = d.split('-').map(Number); return `${m}월 ${dd}일`; };
+  /** 기록 → 파일 내용 */
+  const toFile = (e: DiaryEntry) => {
+    const fm = [`title: ${yq(e.title)}`, `date: ${e.date}`, e.mood && `mood: ${yq(e.mood)}`, e.weather && `weather: ${yq(e.weather)}`, e.line && `line: ${yq(e.line)}`,
+      e.done.length ? `done:\n${e.done.map((d) => `  - ${yq(d)}`).join('\n')}` : ''].filter(Boolean).join('\n');
+    return `---\n${fm}\n---\n${e.memo ? `\n${e.memo}\n` : ''}`;
+  };
+
+  document.querySelectorAll<HTMLFormElement>('[data-dform]').forEach((form) => {
+    const repo: Repo = JSON.parse(form.dataset.repo!);
+    const draftKey = `draft.diary`;
+    const q = <T extends HTMLElement>(s: string) => form.querySelector<T>(s)!;
+    const field = (n: string) => form.elements.namedItem(n) as HTMLInputElement;
+    let editPath = '';
+    const setEditing = (p: string) => { editPath = p; q('[data-editing]').hidden = !p; q('[data-submit]').textContent = p ? '💾 고친 내용 저장' : '💾 저장하기'; };
+    const fill = (e: Partial<DiaryEntry>) => {
+      field('date').value = e.date || todayKey();
+      field('line').value = e.line ?? ''; (field('done') as unknown as HTMLTextAreaElement).value = (e.done ?? []).join('\n');
+      (field('memo') as unknown as HTMLTextAreaElement).value = e.memo ?? '';
+      form.querySelectorAll<HTMLInputElement>('[name="mood"]').forEach((r) => (r.checked = r.value === e.mood));
+      form.querySelectorAll<HTMLInputElement>('[name="weather"]').forEach((r) => (r.checked = r.value === e.weather));
+      if (e.memo) (q('details.more') as HTMLDetailsElement).open = true;
+    };
+    const read = (): DiaryEntry => {
+      const f = new FormData(form);
+      const date = String(f.get('date') || todayKey());
+      return {
+        date, title: fmt(date),
+        mood: String(f.get('mood') ?? '') || undefined, weather: String(f.get('weather') ?? '') || undefined,
+        line: String(f.get('line') ?? '').trim() || undefined,
+        done: String(f.get('done') ?? '').split('\n').map((s) => s.replace(/^[-•·*]\s*/, '').trim()).filter(Boolean),
+        memo: String(f.get('memo') ?? '').trim() || undefined,
+      };
+    };
+    const refresh = () => { q('[data-notoken]').hidden = !!getToken(); q('[data-err]').textContent = ''; };
+    // 임시 저장된 내용 불러오기
+    const dr = load<(Partial<DiaryEntry> & { editPath?: string }) | null>(draftKey, null);
+    fill(dr ?? {}); setEditing(dr?.editPath ?? ''); refresh();
+    form.addEventListener('input', () => save(draftKey, { ...read(), editPath }));
+    form.addEventListener('focusin', refresh);
+    q('[data-reset]').addEventListener('click', () => { save(draftKey, null); form.reset(); fill({}); setEditing(''); refresh(); });
+    // 다른 곳에서 "이 기록 고치기"를 누르면
+    window.addEventListener('diary-edit', (ev) => { const e = (ev as CustomEvent<DiaryEntry>).detail; fill(e); setEditing(e.path ?? ''); save(draftKey, { ...e, editPath: e.path }); refresh(); });
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const e = read(), err = q('[data-err]');
+      if (!e.done.length && !e.line && !e.memo) { err.textContent = '오늘 한 일이나 한 줄 정리 중 하나는 적어 주세요 ✏️'; return; }
+      if (!getToken()) { err.textContent = '🔑 GitHub 연결이 필요해요. 쓴 내용은 임시 저장돼 있어요.'; q('[data-notoken]').hidden = false; return; }
+      const btn = q<HTMLButtonElement>('[data-submit]'); const label = btn.textContent; btn.disabled = true; btn.textContent = '저장 중…';
+      try {
+        const path = editPath || `src/content/diary/${e.date}-${uid()}.md`;
+        if (editPath) await updateFile(repo, path, toFile(e), `일기 수정: ${e.title}`);
+        else await createFile(repo, path, toFile(e), `일기: ${e.title}`);
+        const saved = { ...e, path };
+        const pend = load<(DiaryEntry & { at: number })[]>('pending.diary', []).filter((p) => p.path !== path);
+        save('pending.diary', [...pend, { ...saved, at: Date.now() }]);
+        save(draftKey, null); form.reset(); fill({}); setEditing('');
+        window.dispatchEvent(new CustomEvent('diary-saved', { detail: saved }));
+      } catch (x) { err.textContent = (x as Error).message === 'NO_TOKEN' ? '🔑 GitHub 연결이 필요해요.' : (x as Error).message; }
+      finally { btn.disabled = false; if (btn.textContent === '저장 중…') btn.textContent = label; }
+    });
+  });
+</script>
+
+<style>
+  .dform { display: flex; flex-direction: column; gap: 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: flex-end; }
+  label { display: flex; flex-direction: column; gap: 4px; font: 11px var(--pixel); color: var(--pink-deep); }
+  label small { font: 11px var(--font); color: var(--mute); }
+  input[type='text'], input[type='date'], textarea { font: 14px var(--font); color: var(--ink); border: 2px solid #c9c9c9; border-radius: 6px; padding: 7px 9px; background: #fff; }
+  input:focus, textarea:focus { outline: none; border-color: var(--pink-deep); }
+  textarea { resize: vertical; line-height: 1.7; }
+  .chips { border: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 5px; }
+  .chips legend { font: 11px var(--pixel); color: var(--pink-deep); margin-bottom: 4px; width: 100%; padding: 0; }
+  .chips label { flex-direction: row; cursor: pointer; }
+  .chips input { position: absolute; opacity: 0; pointer-events: none; }
+  .chips span { display: inline-block; padding: 3px 10px; border: 2px solid #d4d4d4; border-radius: 14px; font: 13px var(--font); color: var(--ink); background: #fff; }
+  .weather span { font-size: 17px; padding: 1px 8px; }
+  .chips input:checked + span { border-color: var(--pink-deep); background: var(--pink-soft); }
+  .chips input:focus-visible + span { outline: 2px solid var(--pink-deep); }
+  .more summary { cursor: pointer; font: 11px var(--pixel); color: var(--mute); }
+  .more textarea { width: 100%; margin-top: 6px; }
+  .notoken { margin: 0; padding: 8px 10px; border: 1.5px dashed var(--pink); border-radius: 8px; background: #fff; font-size: 12.5px; }
+  .err { margin: 0; min-height: 1.2em; font-size: 12.5px; color: var(--pink-deep); }
+  .foot { display: flex; justify-content: flex-end; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .editing { margin-right: auto; font: 11px var(--pixel); color: var(--pink-deep); }
+</style>

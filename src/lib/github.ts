@@ -55,6 +55,24 @@ export async function createFile(repo: Repo, path: string, content: string, mess
   return r.json();
 }
 
+/** 파일 고치기 (최신 버전을 확인한 뒤 덮어쓰기) */
+export async function updateFile(repo: Repo, path: string, content: string, message: string) {
+  const token = getToken();
+  if (!token) throw new Error('NO_TOKEN');
+  const url = api(repo, `contents/${path.split('/').map(encodeURIComponent).join('/')}`);
+  const cur = await fetch(`${url}?ref=${encodeURIComponent(repo.branch)}`, { headers: headers(token) });
+  if (cur.status === 404) return createFile(repo, path, content, message);
+  if (!cur.ok) throw new Error(cur.status === 401 ? '열쇠가 만료됐거나 올바르지 않아요. 설정에서 다시 연결해 주세요.' : `기존 기록을 불러오지 못했어요 (${cur.status})`);
+  const { sha } = await cur.json();
+  const r = await fetch(url, {
+    method: 'PUT',
+    headers: { ...headers(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, content: b64(content), branch: repo.branch, sha }),
+  });
+  if (!r.ok) throw new Error(r.status === 409 ? '다른 곳에서 먼저 고쳐졌어요. 새로고침 후 다시 해 주세요.' : `고치지 못했어요 (${r.status})`);
+  return r.json();
+}
+
 /** YAML 안전한 문자열 (큰따옴표 + 이스케이프) */
 export const yq = (s: string) => JSON.stringify(s);
 /** 파일 이름용 짧은 고유값 */

@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import DiaryForm from '../components/DiaryForm.astro';
 import { SITE } from '../site.config';
 import { url, scheduleJson, getHabits, getMoney } from '../lib/utils';
 
@@ -16,7 +17,7 @@ const incomeCats = [...new Set([...INCOME_CATS, ...used.filter((c) => INCOME_CAT
     <section class="p hero">
       <div class="today-date"><b data-today-date></b><span data-today-day></span></div>
       <div class="quick">
-        <button type="button" class="qbtn diary" data-open="diary"><span>✏️</span>오늘 일기 쓰기</button>
+        <button type="button" class="qbtn diary" data-open="diary"><span>✏️</span>오늘의 기록 쓰기</button>
         <button type="button" class="qbtn" data-open="expense"><span>💸</span>지출 기록</button>
         <button type="button" class="qbtn" data-open="income"><span>💰</span>수입 기록</button>
       </div>
@@ -41,23 +42,12 @@ const incomeCats = [...new Set([...INCOME_CATS, ...used.filter((c) => INCOME_CAT
     </div>
   </div>
 
-  <!-- 일기 쓰기 -->
-  <dialog class="dlg" data-dlg="diary" aria-label="일기 쓰기">
-    <form method="dialog" data-form="diary">
-      <header><b>✏️ 오늘 일기 쓰기</b><button type="button" class="x" data-close aria-label="닫기">✕</button></header>
-      <p class="notoken" data-notoken hidden>🔑 먼저 <a href={url('/etc/settings#github')}>설정 › GitHub 연결</a>을 해야 저장할 수 있어요. 쓴 내용은 임시 저장돼요.</p>
-      <label>날짜 <input type="date" name="date" required /></label>
-      <label>제목 <input type="text" name="title" required maxlength="80" placeholder="오늘의 제목" /></label>
-      <div class="row2">
-        <label>기분 <input type="text" name="mood" maxlength="20" placeholder="예: ☁ 몽글몽글" /></label>
-        <fieldset class="weather"><legend>날씨</legend>
-          {['☀️', '⛅', '☁️', '🌧️', '❄️'].map((w) => <label><input type="radio" name="weather" value={w} /><span>{w}</span></label>)}
-        </fieldset>
-      </div>
-      <label>내용 <textarea name="body" rows="9" required placeholder="오늘 있었던 일, 생각, 감정…"></textarea></label>
-      <p class="err" data-err aria-live="polite"></p>
-      <footer><button type="button" class="pbtn" data-close>취소</button><button type="submit" class="pbtn pink">💾 저장하기</button></footer>
-    </form>
+  <!-- 일기 쓰기 (일기 페이지와 같은 양식) -->
+  <dialog class="dlg" data-dlg="diary" aria-label="오늘의 기록">
+    <div class="dlg-in">
+      <header><b>✏️ 오늘의 기록</b><button type="button" class="x" data-close aria-label="닫기">✕</button></header>
+      <DiaryForm id="home" />
+    </div>
   </dialog>
 
   <!-- 수입·지출 기록 -->
@@ -141,31 +131,13 @@ const incomeCats = [...new Set([...INCOME_CATS, ...used.filter((c) => INCOME_CAT
   document.querySelectorAll<HTMLElement>('[data-close]').forEach((b) => b.addEventListener('click', () => (b.closest('dialog') as HTMLDialogElement).close()));
   const prep = (d: HTMLDialogElement) => { $('[data-notoken]', d).hidden = !!getToken(); $('[data-err]', d).textContent = ''; d.showModal(); };
 
-  /* 일기 */
-  const fd = $<HTMLFormElement>('[data-form="diary"]');
-  const draftKey = 'draft.diary';
-  const restoreDraft = () => {
-    const dr = load<Record<string, string> | null>(draftKey, null);
-    (fd.elements.namedItem('date') as HTMLInputElement).value = dr?.date || today;
-    (['title', 'mood', 'body'] as const).forEach((k) => ((fd.elements.namedItem(k) as HTMLInputElement).value = dr?.[k] ?? ''));
-    fd.querySelectorAll<HTMLInputElement>('[name="weather"]').forEach((r) => (r.checked = r.value === dr?.weather));
-  };
-  fd.addEventListener('input', () => save(draftKey, Object.fromEntries(new FormData(fd) as any)));
-  $('[data-open="diary"]').addEventListener('click', () => { restoreDraft(); prep(dlgDiary); });
-  fd.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const f = Object.fromEntries(new FormData(fd) as any) as Record<string, string>;
-    const err = $('[data-err]', fd);
-    if (!getToken()) { err.innerHTML = '🔑 GitHub 연결이 필요해요. 쓴 내용은 임시 저장돼 있어요.'; return; }
-    const btn = $<HTMLButtonElement>('[type="submit"]', fd); btn.disabled = true; btn.textContent = '저장 중…';
-    const fm = [`title: ${yq(f.title.trim())}`, `date: ${f.date}`, f.mood?.trim() && `mood: ${yq(f.mood.trim())}`, f.weather && `weather: ${yq(f.weather)}`].filter(Boolean).join('\n');
-    try {
-      await createFile(repo, `src/content/diary/${f.date}-${uid()}.md`, `---\n${fm}\n---\n\n${f.body.trim()}\n`, `일기: ${f.title.trim()}`);
-      save(draftKey, null); dlgDiary.close();
-      save('pending', [...load<Pend[]>('pending', []), { kind: '일기', text: f.title.trim(), at: Date.now() }]); drawPending();
-      toast('💾 일기를 저장했어요! 1~2분 뒤 DIARY에 나타나요');
-    } catch (x) { err.textContent = (x as Error).message === 'NO_TOKEN' ? '🔑 GitHub 연결이 필요해요.' : (x as Error).message; }
-    finally { btn.disabled = false; btn.textContent = '💾 저장하기'; }
+  /* 일기: 양식은 DiaryForm이 저장까지 처리하고, 저장되면 알려줘요 */
+  $('[data-open="diary"]').addEventListener('click', () => dlgDiary.showModal());
+  window.addEventListener('diary-saved', (ev) => {
+    const e = (ev as CustomEvent<{ title: string }>).detail;
+    dlgDiary.close();
+    save('pending', [...load<Pend[]>('pending', []), { kind: '일기', text: e.title, at: Date.now() }]); drawPending();
+    toast('💾 오늘의 기록을 저장했어요! 1~2분 뒤 DIARY에 나타나요');
   });
 
   /* 수입·지출 */
@@ -237,6 +209,7 @@ const incomeCats = [...new Set([...INCOME_CATS, ...used.filter((c) => INCOME_CAT
   .dlg { width: min(560px, calc(100vw - 24px)); border: 3px solid #3a3a3a; border-radius: 12px; padding: 0; box-shadow: 6px 6px 0 #0003; }
   .dlg::backdrop { background: #0005; }
   .dlg form { display: flex; flex-direction: column; gap: 10px; padding: 0 16px 16px; }
+  .dlg-in { display: flex; flex-direction: column; gap: 10px; padding: 0 16px 16px; }
   .dlg header { display: flex; justify-content: space-between; align-items: center; margin: 0 -16px; padding: 8px 14px; background: linear-gradient(#5a5a5a, #3a3a3a); color: #fff; font: 13px var(--pixel); }
   .x { border: none; background: none; color: #fff; cursor: pointer; font-size: 14px; }
   .dlg label { display: flex; flex-direction: column; gap: 3px; font: 11px var(--pixel); color: var(--pink-deep); }
