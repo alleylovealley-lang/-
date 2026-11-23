@@ -19,6 +19,7 @@ const thisYear = visits.filter((v) => v.data.date.getUTCFullYear() === year);
     <div class="next" data-next={JSON.stringify(nexts)}></div>
   </Box>
   <Box title="VISITS" sub="방문 기록">
+    {visits.length === 0 && <p class="empty">아직 병원 기록이 없어요</p>}
     <div class="visits">{visits.map((v) => (
       <article>
         <header><b>🏥 {v.data.name}</b>{v.data.department && <span class="dept">{v.data.department}</span>}<time>{isoDate(v.data.date)}</time></header>

@@ -9,6 +9,7 @@ const months = [...Map.groupBy(all, (m) => isoDate(m.data.date).slice(0, 7))];
 <Base title="MONEY · 수입·지출" description="수입 및 지출">
   <meta slot="head" name="robots" content="noindex" />
   <PageHead en="MONEY" ko="수입·지출" desc="한 달의 돈 흐름을 기록해요." />
+  {months.length === 0 && <p class="empty">아직 수입·지출 기록이 없어요. 홈의 💸 지출 기록 / 💰 수입 기록으로 시작해 보세요</p>}
   <div class="filter" role="group" aria-label="월 선택">
     {months.map(([m], i) => <button type="button" data-m={m} aria-pressed={i === 0 ? 'true' : 'false'}>{m.replace('-', '. ')}</button>)}
   </div>

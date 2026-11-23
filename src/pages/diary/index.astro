@@ -22,6 +22,7 @@ const latest = entries[0];
   )}
 
   <Box title="날짜별 일기" sub="BY DATE">
+    {entries.length === 0 && <p class="empty">아직 일기가 없어요. 홈의 ✏️ 오늘 일기 쓰기로 첫 일기를 써 보세요</p>}
     <ul class="list diary-list">
       {entries.map((e) => (
         <li>

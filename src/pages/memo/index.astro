@@ -11,6 +11,7 @@ const free = memos.filter(({ e }) => !e.data.tags.includes('백업'));
 <Base title="MEMO · 메모" description="자유 메모 및 백업 관련 메모">
   <PageHead en="MEMO" ko="메모" desc="자유롭게 적는 메모와 백업 관련 메모." tabs={[{ label: '자유 메모', href: '#free' }, { label: '백업 메모', href: '#backup' }]} />
   <Box title="자유 메모" sub="FREE" id="free">
+    {free.length === 0 && <p class="empty">아직 메모가 없어요</p>}
     <div class="memos">{free.map(({ e, Content }) => (
       <article class:list={['memo', { pin: e.data.pinned }]}>
         <header><b>{e.data.pinned && '📌 '}{e.data.title}</b><time>{isoDate(e.data.date)}</time></header>

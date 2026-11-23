@@ -23,6 +23,7 @@ const boards = await getMoodboards();
   </Box>
 
   <Box title="SAVED BOARDS" sub="저장된 무드보드" id="saved">
+    {boards.length === 0 && <p class="empty">저장된 무드보드가 없어요</p>}
     {boards.map((b) => (
       <article class="board">
         <header><b>{b.data.title}</b><time>{isoDate(b.data.date)}</time></header>

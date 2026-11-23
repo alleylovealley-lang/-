@@ -8,7 +8,8 @@ const byMonth = Map.groupBy(photos, (p) => isoDate(p.data.date).slice(0, 7));
 const albums = [...Map.groupBy(photos, (p) => p.data.album)];
 ---
 <Base title="PHOTO · 사진" description="사진과 일상의 순간을 보관하는 공간">
-  <PageHead en="PHOTO" ko="사진" desc="앨범별로 사진을 보관하는 공간."
+  {photos.length === 0 && <><PageHead en="PHOTO" ko="사진" desc="앨범별로 사진을 보관하는 공간." /><p class="empty">아직 사진이 없어요</p></>}
+  {photos.length > 0 && <><PageHead en="PHOTO" ko="사진" desc="앨범별로 사진을 보관하는 공간."
     tabs={[{ label: '최근 사진', href: '#moments' }, { label: '앨범', href: '#albums' }, { label: '날짜별', href: '#by-date' }]} />
 
   <Box title="RECENT" sub="최근 사진" id="moments">
@@ -39,6 +40,7 @@ const albums = [...Map.groupBy(photos, (p) => p.data.album)];
     ))}
   </Box>
 
+</>}
 </Base>
 <style>
   .strip { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; padding: 6px 0 10px; }

@@ -12,6 +12,7 @@ const KIND = { image: '🖼 IMAGE', link: '🔗 LINK', quote: '❝ QUOTE' } as c
     <button type="button" data-k="all" aria-pressed="true">ALL</button>
     {Object.entries(KIND).map(([k, v]) => <button type="button" data-k={k} aria-pressed="false">{v}</button>)}
   </div>
+  {items.length === 0 && <p class="empty">아직 스크랩이 없어요</p>}
   <div class="board">
     {items.map(({ e, Content }, i) => (
       <article class:list={['scrap', e.data.kind]} data-k={e.data.kind} style={`--r:${[-1.5, 1, -0.5, 1.5, 0][i % 5]}deg`}>

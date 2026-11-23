@@ -7,7 +7,8 @@ const albums = [...Map.groupBy(refs, (r) => r.data.album)];
 ---
 <Base title="REFERENCE · 레퍼런스" description="종류별 레퍼런스 앨범">
   <PageHead en="REFERENCE" ko="레퍼런스" desc="종류별로 모아둔 레퍼런스 앨범." />
-  <div class="filter" role="group" aria-label="앨범">
+  {refs.length === 0 && <p class="empty">아직 레퍼런스가 없어요</p>}
+  <div class="filter" role="group" aria-label="앨범" hidden={refs.length === 0}>
     <button type="button" data-a="all" aria-pressed="true">ALL ({refs.length})</button>
     {albums.map(([a, xs]) => <button type="button" data-a={a} aria-pressed="false">{a} ({xs.length})</button>)}
   </div>
