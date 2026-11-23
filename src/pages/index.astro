@@ -179,9 +179,9 @@ const incomeCats = [...new Set([...INCOME_CATS, ...used.filter((c) => INCOME_CAT
   .today-date { display: flex; flex-direction: column; }
   .today-date b { font: 400 34px/1.1 var(--hand); }
   .today-date span { font: 12px var(--pixel); color: var(--pink-deep); }
-  .quick { display: flex; flex-wrap: wrap; gap: 10px; margin-left: auto; }
-  .qbtn { display: flex; align-items: center; gap: 8px; padding: 10px 18px; border: 2px solid #555; border-radius: 6px; background: linear-gradient(#fff, #ececec); box-shadow: 3px 3px 0 #bbb; font: 13px var(--pixel); color: var(--ink); cursor: pointer; }
-  .qbtn span { font-size: 18px; }
+  .quick { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+  .qbtn { display: flex; align-items: center; gap: 5px; padding: 4px 10px; border: 2px solid #555; border-radius: 5px; background: linear-gradient(#fff, #ececec); box-shadow: 2px 2px 0 #bbb; font: 11px var(--pixel); color: var(--ink); cursor: pointer; }
+  .qbtn span { font-size: 13px; }
   .qbtn.diary { background: linear-gradient(#f7b8cd, #e0709a); border-color: #c75a83; color: #fff; }
   .qbtn:hover { transform: translateY(-1px); }
   .qbtn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #bbb; }
@@ -232,6 +232,6 @@ const incomeCats = [...new Set([...INCOME_CATS, ...used.filter((c) => INCOME_CAT
   @media (max-width: 860px) {
     .two, .row2 { grid-template-columns: 1fr; }
     .quick { margin-left: 0; width: 100%; }
-    .qbtn { flex: 1 1 140px; justify-content: center; }
+    .qbtn { flex: 1 1 auto; justify-content: center; }
   }
 </style>

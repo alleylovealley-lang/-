@@ -15,8 +15,9 @@ const diary = defineCollection({
   schema: z.object({
     title: z.string(),
     date,
-    mood: z.string().optional(), // 그날의 기분 (예: 😊 좋음)
-    weather: z.string().optional(), // 날씨 이모지
+    idiom: z.string().optional(), // 오늘의 사자성어
+    mood: z.string().optional(), // (예전 기록용) 기분
+    weather: z.string().optional(), // (예전 기록용) 날씨
     line: z.string().optional(), // 한 줄 정리
     done: z.array(z.string()).default([]), // 오늘 한 일
     cover: z.string().optional(), // 썸네일 이미지 경로

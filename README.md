@@ -31,7 +31,7 @@
 
 | 메뉴 | 폴더 | 형식 |
 | --- | --- | --- |
-| RECORD › 일기 | `src/content/diary/` | `.md` — `line`(한 줄 정리), `done`(오늘 한 일 목록), `mood`, `weather` |
+| RECORD › 일기 | `src/content/diary/` | `.md` — `idiom`(오늘의 사자성어), `line`(한 줄 정리), `done`(오늘 한 일 목록) · 사자성어 고르기 목록은 `src/lib/idioms.ts` |
 | RECORD › 스크랩북 | `src/content/scrapbook/` | `.md` — `kind: image / link / quote` |
 | RECORD › 메모 | `src/content/memo/` | `.md` — `tags: [백업]`이면 백업 메모 |
 | LIFE › 일정 | `src/content/schedule/` | `.yaml` — `dday: true`면 D-Day |
