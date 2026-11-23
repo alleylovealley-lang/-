@@ -247,6 +247,7 @@ const references = defineCollection({
       memo: z.string().optional(),
       source: z.string().optional(), // 출처 링크
       added: date.optional(),
+      hash: z.string().optional(), // 같은 이미지 찾기용 지문 (자동)
     })).default([]),
   }),
 });
