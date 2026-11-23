@@ -69,7 +69,7 @@ import { SITE } from '../../site.config';
 </Base>
 <script>
   import { load, save } from '../../lib/client';
-  import { getToken, setToken, checkConnection } from '../../lib/github';
+  import { getToken, setToken, checkConnection, tokenProblem } from '../../lib/github';
   const $ = (s: string) => document.querySelector<HTMLElement>(`[data-${s}]`)!;
   const say = (m: string) => ($('msg').textContent = m);
   const LABEL: Record<string, string> = {
@@ -137,9 +137,10 @@ import { SITE } from '../../site.config';
     state.textContent = (r.ok ? '🟢 ' : '🔴 ') + r.message; state.className = 'state ' + (r.ok ? 'on' : 'off');
   };
   $('gh-save').addEventListener('click', async () => {
-    const v = ($('gh-token') as HTMLInputElement).value.trim();
-    if (!v) return ($('gh-token') as HTMLInputElement).focus();
-    setToken(v); ($('gh-token') as HTMLInputElement).value = ''; await showState(); drawTable();
+    const input = $('gh-token') as HTMLInputElement;
+    const problem = tokenProblem(input.value);
+    if (problem) { state.textContent = '🔴 ' + problem; state.className = 'state off'; return input.focus(); }
+    setToken(input.value); input.value = ''; await showState(); drawTable();
   });
   $('gh-remove').addEventListener('click', () => { setToken(''); try { localStorage.removeItem('hong.gh.token'); } catch {} showState(); drawTable(); });
   showState();
