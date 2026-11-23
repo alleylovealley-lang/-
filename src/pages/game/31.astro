@@ -2,81 +2,324 @@
 import Base from '../../layouts/Base.astro';
 import GameShell from '../../components/GameShell.astro';
 ---
-<Base title="BR 31 · 배스킨라빈스 31">
-  <GameShell en="BR 31" ko="배스킨라빈스 31" desc="번갈아 1~3개씩 숫자를 이어서 말해요. 31을 말하는 사람이 져요! 이기면 코인을 받아요.">
-    <div class="setup">
-      <span>난이도</span>
-      <div class="filter" role="group" aria-label="난이도">
-        <button type="button" data-lv="easy" aria-pressed="false">쉬움 +5🪙</button>
-        <button type="button" data-lv="normal" aria-pressed="true">보통 +10🪙</button>
-        <button type="button" data-lv="hard" aria-pressed="false">어려움 +20🪙</button>
+<Base title="31 아이스크림 가게">
+  <GameShell en="ICE CREAM SHOP" ko="31 아이스크림 가게" desc="손님 주문대로 콘/컵과 맛을 골라 내주세요! 빨리 줄수록 팁을 받고, 평판이 오르면 손님이 더 자주 와요.">
+    <div class="hud">
+      <span>📅 <b data-day>1</b>일째</span>
+      <span>⏱ <b data-time>대기 중</b></span>
+      <span title="평판">💗 <b data-rep>50</b></span>
+      <span>오늘 매출 🪙 <b data-earn>0</b></span>
+    </div>
+    <div class="stage"><canvas width="240" height="160" data-canvas aria-label="위에서 본 아이스크림 가게"></canvas></div>
+    <p class="msg" data-msg aria-live="polite">영업 시작을 누르면 손님이 들어와요 🍦</p>
+
+    <div class="panel">
+      <div class="open"><button type="button" class="pbtn pink big" data-open>🔔 영업 시작</button></div>
+      <div class="order" data-order-box>
+        <div class="ord"><span class="lbl">주문</span><span data-order>—</span></div>
+        <div class="tray">
+          <span class="lbl">내 손</span>
+          <div class="filter" role="group" aria-label="용기">
+            <button type="button" data-cont="cone" aria-pressed="true">🍦 콘</button>
+            <button type="button" data-cont="cup" aria-pressed="false">🥣 컵</button>
+          </div>
+          <span class="scoops" data-scoops>(빈 손)</span>
+        </div>
+        <div class="flavors" data-flavors></div>
+        <div class="serve">
+          <button type="button" class="pbtn" data-clear>↺ 다시 담기</button>
+          <button type="button" class="pbtn pink" data-serve>✔ 내주기</button>
+        </div>
       </div>
-      <button type="button" class="pbtn" data-new>🔄 새 게임</button>
     </div>
-    <div class="board" data-board></div>
-    <p class="msg" data-msg aria-live="polite">내 차례예요! 몇 개를 말할까요?</p>
-    <div class="acts">
-      <button type="button" class="pbtn pink" data-say="1">1개 말하기</button>
-      <button type="button" class="pbtn pink" data-say="2">2개 말하기</button>
-      <button type="button" class="pbtn pink" data-say="3">3개 말하기</button>
-    </div>
-    <p class="legend"><i class="me"></i> 나 <i class="cpu"></i> 컴퓨터</p>
-    <p class="score" data-score></p>
+
+    <details class="manage" open>
+      <summary>🛠 가게 관리</summary>
+      <div class="mg">
+        <div><b>재고</b> <button type="button" class="pbtn sm" data-restock-all>📦 모두 채우기</button><div class="stock" data-stock></div></div>
+        <div><b>새 맛 열기</b><div class="unlock" data-unlock></div></div>
+        <div><b>테이블</b> <span data-tables></span> <button type="button" class="pbtn sm" data-table>🪑 테이블 늘리기</button></div>
+        <p class="muted small" data-stats></p>
+      </div>
+    </details>
+
+    <dialog class="report" data-report>
+      <h3 data-r-title>영업 종료</h3>
+      <ul data-r-list></ul>
+      <button type="button" class="pbtn pink" data-r-close>좋아요!</button>
+    </dialog>
   </GameShell>
 </Base>
+
 <script>
-  import { load, save, addCoins } from '../../lib/client';
-  type Lv = 'easy' | 'normal' | 'hard';
-  const REWARD = { easy: 5, normal: 10, hard: 20 };
-  const $ = (s: string) => document.querySelector<HTMLElement>(`[data-${s}]`)!;
-  let lv: Lv = load<Lv>('br31.level', 'normal');
-  let rec = load<{ w: number; l: number }>('br31.record', { w: 0, l: 0 });
-  let said: ('me' | 'cpu')[] = []; let over = false; let busy = false;
+  import { load, save, addCoins, getCoins, esc } from '../../lib/client';
+  import { FLAVORS, START_FLAVORS, LAYOUT as L, RULES as R } from '../../lib/icecream';
+
+  const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector<T>(`[data-${s}]`)!;
+  const g = $<HTMLCanvasElement>('canvas').getContext('2d')!;
+  const F = Object.fromEntries(FLAVORS.map((f) => [f.id, f]));
+
+  /* ── 저장 데이터 ── */
+  type Shop = { day: number; rep: number; unlocked: string[]; stock: Record<string, number>; tables: number; best: number; served: number; angry: number };
+  const fresh = (): Shop => ({ day: 1, rep: 50, unlocked: [...START_FLAVORS], stock: Object.fromEntries(START_FLAVORS.map((id) => [id, R.tubSize])), tables: R.startTables, best: 0, served: 0, angry: 0 });
+  let shop: Shop = { ...fresh(), ...load<Partial<Shop>>('shop', {}) };
+  const persist = () => save('shop', shop);
+
+  /* ── 손님 ── */
+  type Pt = { x: number; y: number };
+  type Order = { cont: 'cone' | 'cup'; scoops: string[] };
+  type Cust = {
+    id: number; x: number; y: number; to: Pt[]; st: 'enter' | 'wait' | 'toSeat' | 'eat' | 'leave';
+    order: Order; pat: number; max: number; hair: string; shirt: string; seat?: number; until?: number; mood?: 'happy' | 'angry';
+  };
+  const HAIR = ['#3a2a22', '#6a4a3a', '#e0b070', '#2a2a2a', '#c9705a', '#f3a5bf'];
+  const SHIRT = ['#8ad0ff', '#ffd34d', '#b5cf8a', '#a9a6e8', '#ff9e7a', '#ffffff', '#6a6a6a'];
+  let custs: Cust[] = [], nid = 1;
+  let open = false, tLeft = 0, spawnIn = 2, today = { earn: 0, served: 0, angry: 0, rep0: 0 };
+  let hand: Order = { cont: 'cone', scoops: [] };
+  let staff = { x: 120, tx: 120, busyUntil: 0 };
+  const queue = () => custs.filter((c) => c.st === 'enter' || c.st === 'wait');
+  const seats = () => Array.from({ length: shop.tables * 2 }, (_, i) => ({ i, x: L.tables[i >> 1].x + (i % 2 ? 11 : -11), y: L.tables[i >> 1].y }));
   const say = (m: string) => ($('msg').textContent = m);
-  const draw = () => {
-    $('board').innerHTML = Array.from({ length: 31 }, (_, i) => `<span class="${said[i] ?? ''}${i === 30 ? ' end' : ''}">${i + 1}</span>`).join('');
-    $('score').textContent = `전적 ${rec.w}승 ${rec.l}패`;
-    document.querySelectorAll<HTMLButtonElement>('[data-say]').forEach((b) => (b.disabled = over || busy || said.length + Number(b.dataset.say) > 31));
-    document.querySelectorAll<HTMLButtonElement>('[data-lv]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lv === lv)));
+  const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
+
+  const spawn = () => {
+    const avail = shop.unlocked;
+    const n = Math.random() < 0.5 ? 1 : Math.random() < 0.7 ? 2 : 3;
+    const pat = R.patience * (0.85 + Math.random() * 0.3);
+    custs.push({ id: nid++, x: L.door.x, y: L.door.y, to: [], st: 'enter', order: { cont: Math.random() < 0.6 ? 'cone' : 'cup', scoops: Array.from({ length: n }, () => pick(avail)) }, pat, max: pat, hair: pick(HAIR), shirt: pick(SHIRT) });
+    retarget();
   };
-  const finish = (loser: 'me' | 'cpu') => {
-    over = true;
-    if (loser === 'cpu') { rec.w++; addCoins(REWARD[lv]); say(`🎉 이겼어요! +${REWARD[lv]}코인`); } else { rec.l++; say('😵 31을 말해버렸어요… 졌어요!'); }
-    save('br31.record', rec); draw();
+  const retarget = () => queue().forEach((c, i) => { const q = L.queue[i]; c.to = [{ x: q.x, y: q.y }]; });
+  const leave = (c: Cust, mood: 'happy' | 'angry') => { c.st = 'leave'; c.mood = mood; c.to = [{ x: c.x, y: 120 }, { x: L.door.x, y: 150 }, { x: L.door.x, y: 170 }]; retarget(); };
+
+  /* ── 주문 처리 ── */
+  const sameOrder = (a: Order, b: Order) => a.cont === b.cont && [...a.scoops].sort().join() === [...b.scoops].sort().join();
+  const front = () => { const q = queue(); return q[0] && q[0].st === 'wait' ? q[0] : null; };
+  const serve = () => {
+    const c = front();
+    if (!c) return say('주문을 기다리는 손님이 없어요');
+    if (!hand.scoops.length) return say('아이스크림을 먼저 담아주세요 🍦');
+    if (sameOrder(hand, c.order)) {
+      const price = R.basePrice[hand.cont] + R.scoopPrice * hand.scoops.length;
+      const tip = Math.round((c.pat / c.max) * R.tipMax);
+      addCoins(price + tip); today.earn += price + tip; today.served++; shop.served++;
+      shop.rep = Math.min(100, shop.rep + 2);
+      say(`😋 감사합니다! +${price}코인${tip ? ` (팁 +${tip})` : ''}`);
+      const taken = new Set(custs.filter((x) => x.seat != null && (x.st === 'toSeat' || x.st === 'eat')).map((x) => x.seat));
+      const seat = seats().find((s) => !taken.has(s.i));
+      if (seat) { c.st = 'toSeat'; c.seat = seat.i; c.to = [{ x: c.x, y: 116 }, { x: seat.x, y: 116 }, { x: seat.x, y: seat.y }]; retarget(); }
+      else leave(c, 'happy');
+    } else {
+      shop.rep = Math.max(0, shop.rep - 4); today.angry++; shop.angry++;
+      say('😠 이거 제가 시킨 거 아니에요! (평판 -4)'); leave(c, 'angry');
+    }
+    hand = { cont: hand.cont, scoops: [] }; persist(); drawUI();
   };
-  const speak = (who: 'me' | 'cpu', n: number) => { for (let i = 0; i < n && said.length < 31; i++) said.push(who); if (said.length >= 31) finish(who); };
-  const cpuMove = () => {
-    const cur = said.length; // 이미 말한 마지막 숫자
-    let n = 1 + Math.floor(Math.random() * 3);
-    const smart = lv === 'hard' || (lv === 'normal' && Math.random() < 0.6);
-    if (smart) { const k = ((30 - cur) % 4 + 4) % 4; if (k >= 1 && k <= 3) n = k; } // 4의 배수+2(…26, 30)를 노림
-    n = Math.min(n, 31 - cur);
-    speak('cpu', n);
-    if (!over) say(`컴퓨터가 ${n}개 말했어요 (${cur + 1}${n > 1 ? `~${cur + n}` : ''}). 내 차례!`);
+  const addScoop = (id: string) => {
+    if (hand.scoops.length >= 3) return say('한 번에 3스쿱까지만 담을 수 있어요');
+    if ((shop.stock[id] ?? 0) <= 0) return say(`${F[id].n} 재고가 없어요! 관리에서 채워주세요 📦`);
+    shop.stock[id]--; hand.scoops.push(id); persist();
+    const slot = shop.unlocked.indexOf(id);
+    staff.tx = tubPos(slot).x + 6; staff.busyUntil = performance.now() + 450;
+    drawUI();
   };
-  document.querySelectorAll<HTMLButtonElement>('[data-say]').forEach((b) => b.addEventListener('click', () => {
-    if (over || busy) return;
-    speak('me', Number(b.dataset.say)); draw(); if (over) return;
-    busy = true; draw(); say('컴퓨터가 생각 중… 🤔');
-    setTimeout(() => { busy = false; cpuMove(); draw(); }, 600);
-  }));
-  const newGame = () => { said = []; over = false; busy = false; say('내 차례예요! 몇 개를 말할까요?'); draw(); };
-  document.querySelectorAll<HTMLButtonElement>('[data-lv]').forEach((b) => b.addEventListener('click', () => { lv = b.dataset.lv as Lv; save('br31.level', lv); newGame(); }));
-  $('new').addEventListener('click', newGame);
-  newGame();
+
+  /* ── 하루 진행 ── */
+  const startDay = () => {
+    if (open) return;
+    open = true; tLeft = R.dayLength; spawnIn = 1.5; today = { earn: 0, served: 0, angry: 0, rep0: shop.rep };
+    say('🔔 영업 시작! 손님이 들어와요'); drawUI();
+  };
+  const endDay = () => {
+    open = false;
+    queue().forEach((c) => leave(c, 'happy'));
+    const best = today.earn > shop.best; if (best) shop.best = today.earn;
+    $('r-title').textContent = `📅 ${shop.day}일째 영업 종료`;
+    $('r-list').innerHTML = [
+      `😋 손님 ${today.served}명`, `😠 화난 손님 ${today.angry}명`, `🪙 매출 ${today.earn}코인${best ? ' 🏆 최고 기록!' : ''}`,
+      `💗 평판 ${today.rep0} → ${shop.rep}`,
+    ].map((x) => `<li>${x}</li>`).join('');
+    shop.day++; persist(); drawUI();
+    $<HTMLDialogElement>('report').showModal();
+  };
+
+  /* ── 매 프레임 ── */
+  let last = performance.now();
+  const tick = (now: number) => {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (open) {
+      tLeft -= dt; if (tLeft <= 0) { tLeft = 0; endDay(); }
+      spawnIn -= dt;
+      if (spawnIn <= 0) { if (queue().length < L.queue.length) spawn(); spawnIn = 9 - shop.rep / 20 + Math.random() * 3; }
+    }
+    for (const c of custs) {
+      const tgt = c.to[0];
+      if (tgt) {
+        const dx = tgt.x - c.x, dy = tgt.y - c.y, d = Math.hypot(dx, dy), sp = 38 * dt;
+        if (d <= sp) { c.x = tgt.x; c.y = tgt.y; c.to.shift(); } else { c.x += (dx / d) * sp; c.y += (dy / d) * sp; }
+      } else {
+        if (c.st === 'enter') c.st = 'wait';
+        if (c.st === 'toSeat') { c.st = 'eat'; c.until = now + 7000 + Math.random() * 5000; }
+        if (c.st === 'eat' && now > (c.until ?? 0)) leave(c, 'happy');
+      }
+      if ((c.st === 'enter' || c.st === 'wait') && open) {
+        c.pat -= dt;
+        if (c.pat <= 0) { shop.rep = Math.max(0, shop.rep - 4); today.angry++; shop.angry++; say('😤 너무 오래 기다렸어요… (평판 -4)'); leave(c, 'angry'); persist(); }
+      }
+    }
+    custs = custs.filter((c) => !(c.st === 'leave' && !c.to.length));
+    if (now > staff.busyUntil) { const f = front(); staff.tx = f ? f.x : 120; }
+    staff.x += Math.sign(staff.tx - staff.x) * Math.min(Math.abs(staff.tx - staff.x), 70 * dt);
+    draw(now); hudTick();
+    requestAnimationFrame(tick);
+  };
+
+  /* ── 그리기 ── */
+  const px = (x: number, y: number, c: string, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), w, h); };
+  const disc = (cx: number, cy: number, r: number, c: string) => { for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (x * x + y * y <= r * r + r * 0.5) px(cx + x, cy + y, c); };
+  const DIG: Record<string, string[]> = { '3': ['111', '001', '011', '001', '111'], '1': ['010', '110', '010', '010', '111'] };
+  const tubPos = (slot: number) => ({ x: L.freezer.x + (slot % L.freezer.cols) * L.freezer.cell, y: L.freezer.y + Math.floor(slot / L.freezer.cols) * L.freezer.cell });
+  const scoopShape = (x: number, y: number, id: string) => { const f = F[id]; px(x - 2, y, f.c, 5, 3); px(x - 1, y - 1, f.c, 3, 1); if (f.dot) { px(x - 1, y + 1, f.dot); px(x + 1, y, f.dot); } };
+  const drawIce = (x: number, y: number, o: Order) => { // x 가운데, y 바닥
+    if (o.cont === 'cone') { px(x - 2, y - 4, '#d9a066', 5, 2); px(x - 1, y - 2, '#c08850', 3, 1); px(x, y - 1, '#c08850'); }
+    else { px(x - 3, y - 4, '#f3a5bf', 7, 4); px(x - 3, y - 4, '#ffffff', 7, 1); }
+    o.scoops.forEach((id, i) => scoopShape(x, y - 7 - i * 3, id));
+  };
+  const person = (x: number, y: number, hair: string, shirt: string, cap?: string) => {
+    px(x - 4, y - 1, '#3a3a3a', 9, 6); px(x - 3, y, shirt, 7, 4); // 몸 (위에서 본 어깨)
+    disc(x, y - 3, 3, '#3a3a3a'); disc(x, y - 3, 2, '#ffd8c2'); // 머리
+    px(x - 2, y - 6, cap ?? hair, 5, 2); px(x - 3, y - 5, cap ?? hair, 7, 1);
+  };
+
+  const draw = (now: number) => {
+    // 바닥
+    for (let y = 16; y < 152; y += 8) for (let x = 4; x < 236; x += 8) px(x, y, ((x + y) / 8) % 2 ? '#fdeef3' : '#ffffff', 8, 8);
+    for (let y = 16; y < 34; y += 8) for (let x = 4; x < 236; x += 8) px(x, y, ((x + y) / 8) % 2 ? '#eeeeee' : '#f7f7f7', 8, 8); // 주방 쪽
+    // 벽
+    px(0, 0, '#cfcfcf', 240, 16); px(0, 14, '#9a9a9a', 240, 2);
+    px(0, 0, '#bdbdbd', 4, 160); px(236, 0, '#bdbdbd', 4, 160);
+    px(0, 152, '#bdbdbd', 108, 8); px(132, 152, '#bdbdbd', 108, 8); px(108, 154, '#e0709a', 24, 6); // 입구 매트
+    // 간판 "31" + 메뉴판
+    px(98, 2, '#3a3a3a', 44, 11); px(99, 3, '#e0709a', 42, 9);
+    ['3', '1'].forEach((d, k) => DIG[d].forEach((row, j) => [...row].forEach((b, i) => b === '1' && px(112 + k * 9 + i * 2, 4 + j * 1.6, '#ffffff', 2, 2))));
+    shop.unlocked.slice(0, 12).forEach((id, i) => px(20 + i * 6, 5, F[id].c, 4, 4));
+    shop.unlocked.slice(12).forEach((id, i) => px(150 + i * 6, 5, F[id].c, 4, 4));
+    // 직원
+    person(staff.x, L.staffY + 4, '#3a2a22', '#ffffff', '#e0709a');
+    // 냉장고
+    const fw = L.freezer.cols * L.freezer.cell, fh = L.freezer.rows * L.freezer.cell;
+    px(L.freezer.x - 3, L.freezer.y - 3, '#7a8a9a', fw + 6, fh + 6); px(L.freezer.x - 1, L.freezer.y - 1, '#dff0f8', fw + 2, fh + 2);
+    for (let s = 0; s < L.freezer.cols * L.freezer.rows; s++) {
+      const p = tubPos(s), id = shop.unlocked[s];
+      px(p.x + 1, p.y + 1, '#b8c8d4', 14, 14);
+      if (id) { const lv = Math.ceil(((shop.stock[id] ?? 0) / R.tubSize) * 10); px(p.x + 2, p.y + 2, '#ffffff', 12, 12); if (lv) px(p.x + 2, p.y + 14 - lv - 1 + 1, F[id].c, 12, lv); if (F[id].dot && lv > 2) { px(p.x + 5, p.y + 13 - lv + 3, F[id].dot); px(p.x + 10, p.y + 13 - lv + 4, F[id].dot); } }
+      else { px(p.x + 6, p.y + 6, '#9aa8b5', 4, 4); }
+    }
+    // 카운터 + 계산대
+    px(L.counter.x, L.counter.y, '#c75a83', L.counter.w, L.counter.h); px(L.counter.x, L.counter.y, '#f3a5bf', L.counter.w, 3);
+    px(L.register.x - 6, L.register.y - 4, '#3a3a3a', 13, 10); px(L.register.x - 5, L.register.y - 3, '#8ad0a0', 11, 4); px(L.register.x - 5, L.register.y + 2, '#6a6a6a', 11, 3);
+    // 테이블
+    for (let i = 0; i < shop.tables; i++) {
+      const t = L.tables[i];
+      px(t.x - 15, t.y - 3, '#e0709a', 6, 6); px(t.x + 9, t.y - 3, '#e0709a', 6, 6); // 의자
+      disc(t.x, t.y, 7, '#cfcfcf'); disc(t.x, t.y, 6, '#ffffff');
+    }
+    // 화분
+    for (const p of L.plants) { px(p.x - 3, p.y, '#a86a4a', 7, 5); disc(p.x, p.y - 2, 4, '#7aa870'); px(p.x - 1, p.y - 4, '#a8d098', 2, 2); }
+    // 손님 (아래쪽일수록 앞에)
+    [...custs].sort((a, b) => a.y - b.y).forEach((c) => {
+      person(c.x, c.y, c.hair, c.shirt);
+      if (c.st === 'eat') drawIce(c.x + (c.seat! % 2 ? -7 : 7), c.y + 4, { cont: c.order.cont, scoops: c.order.scoops.slice(0, 1) });
+      if (c.st === 'leave' && c.mood) { const y = c.y - 14; if (c.mood === 'angry') { px(c.x - 2, y, '#e05050', 5, 1); px(c.x - 1, y + 1, '#e05050', 3, 1); } else { px(c.x - 2, y, '#e0709a', 2, 2); px(c.x + 1, y, '#e0709a', 2, 2); px(c.x - 1, y + 2, '#e0709a', 3, 1); } }
+    });
+    // 주문 말풍선 (줄 선 손님)
+    queue().forEach((c, i) => {
+      if (c.st !== 'wait') return;
+      const bx = c.x + 6, by = c.y - 26, isFront = i === 0;
+      px(bx - 1, by - 1, isFront ? '#e0709a' : '#3a3a3a', 16, 22); px(bx, by, '#ffffff', 14, 20); px(bx - 3, by + 16, '#ffffff', 3, 2);
+      drawIce(bx + 7, by + 18, c.order);
+      const r = Math.max(0, c.pat / c.max);
+      px(bx, by + 21, '#dddddd', 14, 2); px(bx, by + 21, r > 0.5 ? '#7ac08a' : r > 0.25 ? '#ffc94d' : '#e05050', Math.ceil(14 * r), 2);
+    });
+    if (!open) { g.globalAlpha = 0.18; px(0, 16, '#3a3a3a', 240, 136); g.globalAlpha = 1; }
+  };
+
+  /* ── 화면 (버튼·정보) ── */
+  const hudTick = () => {
+    $('time').textContent = open ? `${Math.ceil(tLeft)}초` : '영업 전';
+    const f = front();
+    $('order').innerHTML = f ? `${f.order.cont === 'cone' ? '🍦 콘' : '🥣 컵'} · ${f.order.scoops.map((id) => `<i style="--c:${F[id].c}"></i>${esc(F[id].n)}`).join(' + ')}` : open ? '손님을 기다리는 중…' : '—';
+  };
+  const drawUI = () => {
+    $('day').textContent = String(shop.day); $('rep').textContent = String(shop.rep); $('earn').textContent = String(today.earn);
+    $<HTMLButtonElement>('open').disabled = open; $<HTMLButtonElement>('open').textContent = open ? '🍦 영업 중…' : '🔔 영업 시작';
+    document.querySelectorAll<HTMLButtonElement>('[data-cont]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cont === hand.cont)));
+    $('scoops').innerHTML = hand.scoops.length ? hand.scoops.map((id) => `<i style="--c:${F[id].c}"></i>${esc(F[id].n)}`).join(' + ') : '(빈 손)';
+    $('flavors').innerHTML = shop.unlocked.map((id, k) => `<button type="button" class="fl" data-fl="${id}" ${shop.stock[id] ? '' : 'disabled'} title="${k < 9 ? `단축키 ${k + 1}` : ''}"><i style="--c:${F[id].c}"></i>${esc(F[id].n)}<small>${shop.stock[id] ?? 0}</small></button>`).join('');
+    $('stock').innerHTML = shop.unlocked.filter((id) => (shop.stock[id] ?? 0) < R.tubSize).map((id) => `<button type="button" class="pbtn sm" data-restock="${id}">${esc(F[id].n)} ${shop.stock[id] ?? 0}/${R.tubSize} · ${R.restockCost}🪙</button>`).join('') || '<span class="muted small">모든 통이 가득 차 있어요</span>';
+    const need = shop.unlocked.filter((id) => (shop.stock[id] ?? 0) < R.tubSize).length * R.restockCost;
+    $<HTMLButtonElement>('restock-all').textContent = `📦 모두 채우기 (${need}🪙)`; $<HTMLButtonElement>('restock-all').disabled = !need;
+    $('unlock').innerHTML = FLAVORS.filter((f) => !shop.unlocked.includes(f.id)).map((f) => `<button type="button" class="pbtn sm" data-unl="${f.id}"><i style="--c:${f.c}"></i>${esc(f.n)} · ${f.cost}🪙</button>`).join('') || '<span class="muted small">모든 맛을 열었어요! 🎉</span>';
+    $('tables').textContent = `${shop.tables}/${L.tables.length}개`;
+    $<HTMLButtonElement>('table').disabled = shop.tables >= L.tables.length; $<HTMLButtonElement>('table').textContent = shop.tables >= L.tables.length ? '🪑 최대' : `🪑 테이블 늘리기 (${R.tableCost}🪙)`;
+    $('stats').textContent = `지금까지 손님 ${shop.served}명 · 하루 최고 매출 ${shop.best}코인`;
+  };
+
+  const spend = (n: number) => { if (getCoins() < n) { say(`코인이 부족해요 (${n}코인 필요) 🥲`); return false; } addCoins(-n); return true; };
+  document.addEventListener('click', (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>('button'); if (!t) return;
+    if (t.dataset.fl) addScoop(t.dataset.fl);
+    else if (t.dataset.cont) { hand.cont = t.dataset.cont as Order['cont']; drawUI(); }
+    else if (t.dataset.restock) { if (spend(R.restockCost)) { shop.stock[t.dataset.restock] = R.tubSize; persist(); drawUI(); } }
+    else if (t.dataset.unl) { const f = F[t.dataset.unl]; if (shop.unlocked.length >= L.freezer.cols * L.freezer.rows) return say('냉장고가 꽉 찼어요'); if (spend(f.cost)) { shop.unlocked.push(f.id); shop.stock[f.id] = R.tubSize; persist(); say(`🎉 새 맛 「${f.n}」을 열었어요!`); drawUI(); } }
+  });
+  $('restock-all').addEventListener('click', () => {
+    const ids = shop.unlocked.filter((id) => (shop.stock[id] ?? 0) < R.tubSize);
+    if (ids.length && spend(ids.length * R.restockCost)) { ids.forEach((id) => (shop.stock[id] = R.tubSize)); persist(); say('📦 모든 통을 가득 채웠어요'); drawUI(); }
+  });
+  $('table').addEventListener('click', () => { if (shop.tables < L.tables.length && spend(R.tableCost)) { shop.tables++; persist(); say('🪑 테이블을 하나 더 놓았어요!'); drawUI(); } });
+  $('clear').addEventListener('click', () => { hand.scoops = []; drawUI(); say('다시 담아요 (담았던 건 버려져요)'); });
+  $('serve').addEventListener('click', serve);
+  $('open').addEventListener('click', startDay);
+  $('r-close').addEventListener('click', () => $<HTMLDialogElement>('report').close());
+  document.addEventListener('keydown', (e) => {
+    if (/input|textarea|select/i.test((e.target as HTMLElement).tagName)) return;
+    const n = Number(e.key); if (n >= 1 && n <= 9 && shop.unlocked[n - 1]) addScoop(shop.unlocked[n - 1]);
+    if (e.key === 'Enter' && open) { e.preventDefault(); serve(); }
+  });
+  persist(); drawUI(); requestAnimationFrame(tick);
 </script>
+
 <style>
-  .setup { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; font: 12px var(--pixel); }
-  .setup .filter { margin: 0; }
-  .board { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
-  .board :global(span) { aspect-ratio: 1; display: grid; place-items: center; border: 1.5px solid var(--line); border-radius: 50%; font: 13px var(--pixel); background: #fff; color: #bbb; }
-  .board :global(span.me) { background: var(--pink); border-color: var(--pink-deep); color: #fff; }
-  .board :global(span.cpu) { background: #3a3a3a; border-color: #2f2f2f; color: #fff; }
-  .board :global(span.end) { border: 2px dashed var(--pink-deep); }
-  .msg { font: 400 19px var(--hand); text-align: center; min-height: 1.5em; margin: 12px 0; }
-  .acts { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-  .legend { text-align: center; font: 11px var(--pixel); color: var(--mute); margin: 8px 0 0; }
-  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: middle; margin-left: 8px; }
-  .legend .me { background: var(--pink); } .legend .cpu { background: #3a3a3a; }
-  .score { text-align: center; font: 11px var(--pixel); color: var(--mute); margin: 10px 0 0; }
+  .hud { display: flex; flex-wrap: wrap; gap: 6px 14px; font: 12px var(--pixel); margin-bottom: 8px; }
+  .hud b { font-weight: 400; color: var(--pink-deep); }
+  .stage { border: 3px solid #3a3a3a; border-radius: 10px; overflow: hidden; }
+  canvas { display: block; width: 100%; aspect-ratio: 3 / 2; image-rendering: pixelated; image-rendering: crisp-edges; }
+  .msg { font: 400 19px var(--hand); text-align: center; min-height: 1.5em; margin: 10px 0; }
+  .panel { display: flex; flex-direction: column; gap: 10px; }
+  .open { text-align: center; }
+  .pbtn.big { font-size: 14px; padding: 8px 24px; }
+  .pbtn.sm { font-size: 11px; padding: 2px 8px; box-shadow: 1px 1px 0 #bbb; border-width: 1.5px; }
+  .order { border: 2px dashed var(--pink); border-radius: 10px; padding: 10px 12px; background: var(--pink-soft); display: flex; flex-direction: column; gap: 8px; }
+  .ord, .tray { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13.5px; }
+  .lbl { font: 11px var(--pixel); color: #fff; background: #3a3a3a; border-radius: 3px; padding: 0 6px; }
+  .tray .filter { margin: 0; }
+  :global(.game) i[style] { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--c); border: 1.5px solid #3a3a3a; vertical-align: -1px; margin-right: 3px; }
+  .flavors { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 5px; }
+  .flavors :global(.fl) { display: flex; align-items: center; gap: 2px; padding: 5px 6px; border: 2px solid #555; border-radius: 6px; background: #fff; box-shadow: 2px 2px 0 #bbb; cursor: pointer; font-size: 12px; color: var(--ink); }
+  .flavors :global(.fl small) { margin-left: auto; font: 10px var(--pixel); color: var(--mute); }
+  .flavors :global(.fl:hover) { border-color: var(--pink-deep); }
+  .flavors :global(.fl:active) { transform: translate(1px, 1px); box-shadow: 1px 1px 0 #bbb; }
+  .flavors :global(.fl:disabled) { opacity: 0.4; cursor: not-allowed; }
+  .serve { display: flex; justify-content: flex-end; gap: 8px; }
+  .manage { margin-top: 14px; border: 1.5px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+  .manage summary { cursor: pointer; font: 13px var(--pixel); color: var(--pink-deep); }
+  .mg { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; font-size: 13px; }
+  .mg b { font: 400 12px var(--pixel); margin-right: 6px; }
+  .stock, .unlock { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+  .report { border: 3px solid #3a3a3a; border-radius: 12px; padding: 16px 22px; text-align: center; box-shadow: 6px 6px 0 #0003; }
+  .report::backdrop { background: #0005; }
+  .report h3 { font: 400 15px var(--pixel); color: var(--pink-deep); margin: 0 0 8px; }
+  .report ul { list-style: none; padding: 0; margin: 0 0 12px; font-size: 14px; line-height: 1.9; }
 </style>

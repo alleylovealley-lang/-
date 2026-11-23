@@ -51,7 +51,7 @@
 | ARCHIVE › 사진 | `src/content/photos/` + 이미지는 `public/images/photos/` | `.yaml` — `album:`으로 분류 |
 | ARCHIVE › 백업 링크 | `src/content/backups/` | `.yaml` |
 
-GAME(다마고치·낚시터·31·룰렛)과 습관 체크, 자유 무드보드는 **이 브라우저에 저장**돼요. ETC › SETTINGS에서 백업 파일로 내보내고 불러올 수 있어요.
+GAME(다마고치·낚시터·아이스크림 가게·룰렛)과 습관 체크, 자유 무드보드는 **이 브라우저에 저장**돼요. ETC › SETTINGS에서 백업 파일로 내보내고 불러올 수 있어요.
 
 메뉴 구성(대주제·하위 메뉴 이름, 설명, 순서)은 `src/site.config.ts`의 `nav`에서 바꿀 수 있어요.
 
@@ -66,6 +66,10 @@ priority: high   # high / normal / low
 points: 30       # 완료하면 받는 퀘스트 포인트
 done: false
 ```
+
+## 아이스크림 가게 배치 바꾸기
+
+GAME › 배스킨라빈스 31(픽셀 아이스크림 가게)의 냉장고·카운터·테이블 위치, 맛 목록과 가격, 하루 영업 시간 같은 규칙은 `src/lib/icecream.ts` 한 파일에 모여 있어요. 좌표는 가로 240 × 세로 160 픽셀 화면 기준이에요.
 
 ## 내 컴퓨터에서 보기
 
