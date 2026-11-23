@@ -5,6 +5,7 @@ import Box from '../../components/Box.astro';
 import DiaryForm from '../../components/DiaryForm.astro';
 import { url, getDiary, isoDate } from '../../lib/utils';
 import { IDIOMS } from '../../lib/idioms';
+import { SITE } from '../../site.config';
 
 const entries = (await getDiary()).map((e) => ({
   date: isoDate(e.data.date), title: e.data.title, idiom: e.data.idiom, mood: e.data.mood, weather: e.data.weather, line: e.data.line,
@@ -14,7 +15,7 @@ const entries = (await getDiary()).map((e) => ({
 <Base title="DIARY · 일기" description="하루를 마무리하며 오늘 한 일을 간단히 정리해요">
   <PageHead en="DIARY" ko="일기" desc="하루를 마무리하며, 오늘 무얼 했는지 간단히 정리해요." />
 
-  <div class="diary" data-entries={JSON.stringify(entries)} data-idioms={JSON.stringify(IDIOMS)}>
+  <div class="diary" data-entries={JSON.stringify(entries)} data-idioms={JSON.stringify(IDIOMS)} data-repo={JSON.stringify(SITE.repo)}>
     <Box title="오늘의 기록" sub="TODAY" id="write">
       <div class="today-done" data-today hidden></div>
       <div class="write-box" data-writebox><DiaryForm id="page" /></div>
@@ -33,11 +34,13 @@ const entries = (await getDiary()).map((e) => ({
 </Base>
 
 <script>
-  import { todayKey, load, save, esc, pad } from '../../lib/client';
+  import { todayKey, load, save, esc, pad, hiddenPaths, markDeleted } from '../../lib/client';
+  import { getToken, deleteFile, type Repo } from '../../lib/github';
   type E = { date: string; title: string; idiom?: string; mood?: string; weather?: string; line?: string; done: string[]; memo?: string; path?: string; href?: string; pending?: boolean };
   const root = document.querySelector<HTMLElement>('.diary')!;
   const $ = (s: string) => root.querySelector<HTMLElement>(`[data-${s}]`)!;
   const built: E[] = JSON.parse(root.dataset.entries || '[]');
+  const repo: Repo = JSON.parse(root.dataset.repo!);
   const idioms: { k: string; h: string; m: string }[] = JSON.parse(root.dataset.idioms || '[]');
   const meaning = (k?: string) => idioms.find((i) => i.k === k?.trim());
   const DAYS = '일월화수목금토';
@@ -49,7 +52,8 @@ const entries = (await getDiary()).map((e) => ({
     const pend = load<(E & { at: number })[]>('pending.diary', []).filter((p) => Date.now() - p.at < 20 * 60_000);
     const fresh = pend.filter((p) => { const b = built.find((x) => x.path === p.path); return !b || b.line !== p.line || b.done.join() !== p.done.join() || b.idiom !== p.idiom; });
     save('pending.diary', fresh);
-    const merged = [...built.filter((b) => !fresh.some((p) => p.path === b.path)), ...fresh.map((p) => ({ ...p, pending: true }))];
+    const gone = hiddenPaths('diary', built.map((b) => b.path));
+    const merged = [...built.filter((b) => !gone.has(b.path!) && !fresh.some((p) => p.path === b.path)), ...fresh.map((p) => ({ ...p, pending: true }))];
     return merged.sort((a, b) => b.date.localeCompare(a.date));
   };
   const dayName = (d: string) => DAYS[new Date(d + 'T00:00').getDay()];
@@ -66,7 +70,7 @@ const entries = (await getDiary()).map((e) => ({
       ${e.line ? `<p class="line">“${esc(e.line)}”</p>` : ''}
       ${e.done.length ? `<ul class="done">${e.done.map((d) => `<li>${esc(d)}</li>`).join('')}</ul>` : ''}
       ${e.memo ? `<p class="memo">${esc(e.memo).replace(/\n/g, '<br>')}</p>` : ''}
-      <footer>${e.path ? `<button type="button" class="pbtn sm" data-edit="${esc(e.path)}">✎ 고치기</button>` : ''}${e.href && !e.pending ? `<a href="${e.href}">자세히 ›</a>` : ''}</footer>
+      <footer>${e.path ? `<button type="button" class="pbtn sm" data-edit="${esc(e.path)}">✎ 고치기</button><button type="button" class="pbtn sm del" data-del="${esc(e.path)}">🗑 삭제</button>` : ''}${e.href && !e.pending ? `<a href="${e.href}">자세히 ›</a>` : ''}</footer>
     </article>`;
 
   const draw = () => {
@@ -92,7 +96,20 @@ const entries = (await getDiary()).map((e) => ({
     $('cards').innerHTML = month.length ? month.map((e) => card(e)).join('') : list.length ? '' : '<p class="empty">아직 기록이 없어요. 위 양식으로 오늘을 정리해 보세요 ✏️</p>';
   };
   root.querySelectorAll<HTMLButtonElement>('[data-m]').forEach((b) => b.addEventListener('click', () => { m += Number(b.dataset.m); if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; } draw(); }));
-  root.addEventListener('click', (ev) => {
+  root.addEventListener('click', async (ev) => {
+    const d = (ev.target as HTMLElement).closest<HTMLButtonElement>('[data-del]');
+    if (d) {
+      const e = all().find((x) => x.path === d.dataset.del); if (!e) return;
+      if (!getToken()) { toast('🔑 먼저 설정 › GitHub 연결이 필요해요'); return; }
+      if (!confirm(`${e.date} 기록을 완전히 지울까요? 되돌릴 수 없어요.`)) return;
+      d.disabled = true; d.textContent = '지우는 중…';
+      try {
+        await deleteFile(repo, e.path!, `일기: ${e.date} 삭제`);
+        markDeleted('diary', e.path!);
+        draw(); toast('🗑 일기를 지웠어요');
+      } catch (x2) { toast((x2 as Error).message); d.disabled = false; d.textContent = '🗑 삭제'; }
+      return;
+    }
     const b = (ev.target as HTMLElement).closest<HTMLElement>('[data-edit]'); if (!b) return;
     const e = all().find((x) => x.path === b.dataset.edit); if (!e) return;
     window.dispatchEvent(new CustomEvent('diary-edit', { detail: e }));
@@ -141,6 +158,7 @@ const entries = (await getDiary()).map((e) => ({
   :global(.diary .card .memo) { margin: 0; font-size: 12.5px; color: #777; }
   :global(.diary .card footer) { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: auto; font-size: 11px; }
   :global(.diary .card footer a) { color: var(--mute); text-decoration: none; }
+  :global(.diary .card .del) { color: var(--mute); }
   :global(.pbtn.sm) { font-size: 11px; padding: 1px 8px; box-shadow: 1px 1px 0 #bbb; border-width: 1.5px; }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; background: #3a3a3a; color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 13px; box-shadow: 0 4px 14px #0003; }
 </style>

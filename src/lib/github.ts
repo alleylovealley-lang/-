@@ -107,6 +107,23 @@ export async function updateFile(repo: Repo, path: string, content: string, mess
   return r.json();
 }
 
+/** 파일 지우기 (이미 없으면 그냥 성공) */
+export async function deleteFile(repo: Repo, path: string, message: string) {
+  const token = getToken();
+  if (!token) throw new Error('NO_TOKEN');
+  const url = contentsUrl(repo, path);
+  const cur = await call(`${url}?ref=${encodeURIComponent(repo.branch)}`, { headers: headers(token) });
+  if (cur.status === 404) return;
+  if (!cur.ok) throw saveError(cur.status, await cur.json().catch(() => ({})));
+  const { sha } = await cur.json();
+  const r = await call(url, {
+    method: 'DELETE',
+    headers: { ...headers(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, branch: repo.branch, sha }),
+  });
+  if (!r.ok && r.status !== 404) throw saveError(r.status, await r.json().catch(() => ({})));
+}
+
 /** YAML 안전한 문자열 (큰따옴표 + 이스케이프) */
 export const yq = (s: string) => JSON.stringify(s);
 /** 파일 이름용 짧은 고유값 */
