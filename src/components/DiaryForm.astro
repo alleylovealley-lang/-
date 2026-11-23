@@ -2,22 +2,38 @@
 // 하루 마무리 기록 입력 양식 — 일기 페이지와 홈(대화창)에서 같이 써요
 import { SITE } from '../site.config';
 import { url } from '../lib/utils';
+import { IDIOM_GROUPS, IDIOMS } from '../lib/idioms';
 interface Props { id: string }
 const { id } = Astro.props;
-const MOODS = ['😊 좋음', '🥰 행복', '😌 평온', '🙂 보통', '😴 피곤', '😢 슬픔', '😤 화남'];
-const WEATHER = ['☀️', '⛅', '☁️', '🌧️', '❄️'];
 ---
-<form class="dform" data-dform={id} data-repo={JSON.stringify(SITE.repo)} novalidate>
+<form class="dform" data-dform={id} data-repo={JSON.stringify(SITE.repo)} data-idioms={JSON.stringify(IDIOMS)} novalidate>
   <p class="notoken" data-notoken hidden>🔑 저장하려면 먼저 <a href={url('/etc/settings#github')}>설정 › GitHub 연결</a>이 필요해요. 쓰던 내용은 이 브라우저에 임시 저장돼요.</p>
   <div class="row">
     <label class="date">날짜 <input type="date" name="date" required /></label>
-    <fieldset class="chips weather"><legend>날씨</legend>
-      {WEATHER.map((w) => <label><input type="radio" name="weather" value={w} /><span>{w}</span></label>)}
-    </fieldset>
+    <label class="idiom">오늘의 사자성어 <small>직접 적거나 아래에서 골라요</small>
+      <input type="text" name="idiom" maxlength="12" placeholder="예: 일취월장" autocomplete="off" />
+    </label>
   </div>
-  <fieldset class="chips mood"><legend>기분</legend>
-    {MOODS.map((m) => <label><input type="radio" name="mood" value={m} /><span>{m}</span></label>)}
-  </fieldset>
+  <p class="meaning" data-meaning aria-live="polite"></p>
+  <details class="picker" data-picker>
+    <summary>📜 뜻 보고 고르기</summary>
+    <div class="pk-tools">
+      <div class="pk-groups" role="group" aria-label="분위기">
+        <button type="button" data-g="all" aria-pressed="true">전체</button>
+        {IDIOM_GROUPS.map((g) => <button type="button" data-g={g.name} aria-pressed="false">{g.icon} {g.name}</button>)}
+      </div>
+      <input type="search" placeholder="사자성어나 뜻으로 찾기" aria-label="사자성어 찾기" data-pk-search />
+      <button type="button" class="pbtn sm" data-pk-random>🎲 아무거나</button>
+    </div>
+    <div class="pk-list">
+      {IDIOM_GROUPS.flatMap((g) => g.list.map((i) => (
+        <button type="button" class="pk" data-k={i.k} data-g={g.name} data-s={`${i.k} ${i.h} ${i.m}`}>
+          <b>{i.k}</b><small>{i.h}</small><span>{i.m}</span>
+        </button>
+      )))}
+    </div>
+    <p class="pk-none" data-pk-none hidden>찾는 사자성어가 없어요. 위 칸에 직접 적어도 돼요 ✏️</p>
+  </details>
   <label>오늘 한 일 <small>한 줄에 하나씩</small>
     <textarea name="done" rows="4" placeholder={'예) 카페에서 책 읽기\n예) 장보기\n예) 친구랑 통화'}></textarea>
   </label>
@@ -40,11 +56,12 @@ const WEATHER = ['☀️', '⛅', '☁️', '🌧️', '❄️'];
   import { todayKey, load, save } from '../lib/client';
   import { getToken, createFile, updateFile, yq, uid, type Repo } from '../lib/github';
 
-  type DiaryEntry = { date: string; title: string; mood?: string; weather?: string; line?: string; done: string[]; memo?: string; path?: string };
+  type DiaryEntry = { date: string; title: string; idiom?: string; mood?: string; weather?: string; line?: string; done: string[]; memo?: string; path?: string };
+  type Idiom = { k: string; h: string; m: string };
   const fmt = (d: string) => { const [, m, dd] = d.split('-').map(Number); return `${m}월 ${dd}일`; };
   /** 기록 → 파일 내용 */
   const toFile = (e: DiaryEntry) => {
-    const fm = [`title: ${yq(e.title)}`, `date: ${e.date}`, e.mood && `mood: ${yq(e.mood)}`, e.weather && `weather: ${yq(e.weather)}`, e.line && `line: ${yq(e.line)}`,
+    const fm = [`title: ${yq(e.title)}`, `date: ${e.date}`, e.idiom && `idiom: ${yq(e.idiom)}`, e.mood && `mood: ${yq(e.mood)}`, e.weather && `weather: ${yq(e.weather)}`, e.line && `line: ${yq(e.line)}`,
       e.done.length ? `done:\n${e.done.map((d) => `  - ${yq(d)}`).join('\n')}` : ''].filter(Boolean).join('\n');
     return `---\n${fm}\n---\n${e.memo ? `\n${e.memo}\n` : ''}`;
   };
@@ -55,13 +72,19 @@ const WEATHER = ['☀️', '⛅', '☁️', '🌧️', '❄️'];
     const q = <T extends HTMLElement>(s: string) => form.querySelector<T>(s)!;
     const field = (n: string) => form.elements.namedItem(n) as HTMLInputElement;
     let editPath = '';
+    let keep: Pick<DiaryEntry, 'mood' | 'weather'> = {}; // 예전 기록의 기분·날씨는 고칠 때 그대로 둬요
+    const idioms: Idiom[] = JSON.parse(form.dataset.idioms || '[]');
+    const showMeaning = () => {
+      const v = field('idiom').value.trim(), i = idioms.find((x) => x.k === v);
+      q('[data-meaning]').innerHTML = i ? `<b>${i.k}</b> ${i.h} — ${i.m}` : '';
+      form.querySelectorAll<HTMLElement>('.pk').forEach((b) => b.classList.toggle('on', b.dataset.k === v));
+    };
     const setEditing = (p: string) => { editPath = p; q('[data-editing]').hidden = !p; q('[data-submit]').textContent = p ? '💾 고친 내용 저장' : '💾 저장하기'; };
     const fill = (e: Partial<DiaryEntry>) => {
       field('date').value = e.date || todayKey();
       field('line').value = e.line ?? ''; (field('done') as unknown as HTMLTextAreaElement).value = (e.done ?? []).join('\n');
       (field('memo') as unknown as HTMLTextAreaElement).value = e.memo ?? '';
-      form.querySelectorAll<HTMLInputElement>('[name="mood"]').forEach((r) => (r.checked = r.value === e.mood));
-      form.querySelectorAll<HTMLInputElement>('[name="weather"]').forEach((r) => (r.checked = r.value === e.weather));
+      field('idiom').value = e.idiom ?? ''; showMeaning();
       if (e.memo) (q('details.more') as HTMLDetailsElement).open = true;
     };
     const read = (): DiaryEntry => {
@@ -69,7 +92,7 @@ const WEATHER = ['☀️', '⛅', '☁️', '🌧️', '❄️'];
       const date = String(f.get('date') || todayKey());
       return {
         date, title: fmt(date),
-        mood: String(f.get('mood') ?? '') || undefined, weather: String(f.get('weather') ?? '') || undefined,
+        idiom: String(f.get('idiom') ?? '').trim() || undefined, ...keep,
         line: String(f.get('line') ?? '').trim() || undefined,
         done: String(f.get('done') ?? '').split('\n').map((s) => s.replace(/^[-•·*]\s*/, '').trim()).filter(Boolean),
         memo: String(f.get('memo') ?? '').trim() || undefined,
@@ -79,11 +102,29 @@ const WEATHER = ['☀️', '⛅', '☁️', '🌧️', '❄️'];
     // 임시 저장된 내용 불러오기
     const dr = load<(Partial<DiaryEntry> & { editPath?: string }) | null>(draftKey, null);
     fill(dr ?? {}); setEditing(dr?.editPath ?? ''); refresh();
-    form.addEventListener('input', () => save(draftKey, { ...read(), editPath }));
+    form.addEventListener('input', (ev) => { if ((ev.target as HTMLElement).matches('[data-pk-search]')) return; showMeaning(); save(draftKey, { ...read(), editPath }); });
+    // 사자성어 고르기
+    let group = 'all';
+    const filterList = () => {
+      const s = (q<HTMLInputElement>('[data-pk-search]').value || '').trim();
+      let n = 0;
+      form.querySelectorAll<HTMLElement>('.pk').forEach((b) => { const show = (group === 'all' || b.dataset.g === group) && (!s || b.dataset.s!.includes(s)); b.hidden = !show; if (show) n++; });
+      q('[data-pk-none]').hidden = n > 0;
+    };
+    form.querySelectorAll<HTMLButtonElement>('[data-g]').forEach((b) => { if (b.classList.contains('pk')) return; b.addEventListener('click', () => {
+      group = b.dataset.g!; form.querySelectorAll('.pk-groups [data-g]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); filterList();
+    }); });
+    q('[data-pk-search]').addEventListener('input', filterList);
+    const choose = (k: string) => { field('idiom').value = k; showMeaning(); save(draftKey, { ...read(), editPath }); };
+    form.querySelectorAll<HTMLButtonElement>('.pk').forEach((b) => b.addEventListener('click', () => choose(b.dataset.k!)));
+    q('[data-pk-random]').addEventListener('click', () => {
+      const vis = [...form.querySelectorAll<HTMLElement>('.pk')].filter((b) => !b.hidden);
+      const pick = vis[Math.floor(Math.random() * vis.length)]; if (pick) { choose(pick.dataset.k!); pick.scrollIntoView({ block: 'nearest' }); }
+    });
     form.addEventListener('focusin', refresh);
-    q('[data-reset]').addEventListener('click', () => { save(draftKey, null); form.reset(); fill({}); setEditing(''); refresh(); });
+    q('[data-reset]').addEventListener('click', () => { save(draftKey, null); form.reset(); keep = {}; fill({}); setEditing(''); refresh(); });
     // 다른 곳에서 "이 기록 고치기"를 누르면
-    window.addEventListener('diary-edit', (ev) => { const e = (ev as CustomEvent<DiaryEntry>).detail; fill(e); setEditing(e.path ?? ''); save(draftKey, { ...e, editPath: e.path }); refresh(); });
+    window.addEventListener('diary-edit', (ev) => { const e = (ev as CustomEvent<DiaryEntry>).detail; keep = { mood: e.mood, weather: e.weather }; fill(e); setEditing(e.path ?? ''); save(draftKey, { ...e, editPath: e.path }); refresh(); });
     form.addEventListener('submit', async (ev) => {
       ev.preventDefault();
       const e = read(), err = q('[data-err]');
@@ -97,7 +138,7 @@ const WEATHER = ['☀️', '⛅', '☁️', '🌧️', '❄️'];
         const saved = { ...e, path };
         const pend = load<(DiaryEntry & { at: number })[]>('pending.diary', []).filter((p) => p.path !== path);
         save('pending.diary', [...pend, { ...saved, at: Date.now() }]);
-        save(draftKey, null); form.reset(); fill({}); setEditing('');
+        save(draftKey, null); form.reset(); keep = {}; fill({}); setEditing('');
         window.dispatchEvent(new CustomEvent('diary-saved', { detail: saved }));
       } catch (x) { err.textContent = (x as Error).message === 'NO_TOKEN' ? '🔑 GitHub 연결이 필요해요.' : (x as Error).message; }
       finally { btn.disabled = false; if (btn.textContent === '저장 중…') btn.textContent = label; }
@@ -113,6 +154,24 @@ const WEATHER = ['☀️', '⛅', '☁️', '🌧️', '❄️'];
   input[type='text'], input[type='date'], textarea { font: 14px var(--font); color: var(--ink); border: 2px solid #c9c9c9; border-radius: 6px; padding: 7px 9px; background: #fff; }
   input:focus, textarea:focus { outline: none; border-color: var(--pink-deep); }
   textarea { resize: vertical; line-height: 1.7; }
+  .idiom { flex: 1 1 220px; }
+  .meaning { margin: -6px 0 0; min-height: 1.2em; font-size: 12.5px; color: #666; }
+  .meaning :global(b) { color: var(--pink-deep); }
+  .picker summary { cursor: pointer; font: 11px var(--pixel); color: var(--pink-deep); }
+  .pk-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; }
+  .pk-groups { display: flex; flex-wrap: wrap; gap: 4px; }
+  .pk-groups button { font: 11px var(--pixel); padding: 2px 9px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; cursor: pointer; color: var(--ink); }
+  .pk-groups button[aria-pressed='true'] { border-color: var(--pink-deep); background: var(--pink-soft); color: var(--pink-deep); }
+  .pk-tools input[type='search'] { flex: 1 1 140px; font: 13px var(--font); border: 2px solid #c9c9c9; border-radius: 6px; padding: 3px 8px; }
+  .pk-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 5px; max-height: 260px; overflow-y: auto; padding: 2px; }
+  .pk { display: flex; flex-direction: column; align-items: flex-start; gap: 0; text-align: left; padding: 5px 9px; border: 1.5px solid #d4d4d4; border-radius: 8px; background: #fff; cursor: pointer; color: var(--ink); }
+  .pk[hidden] { display: none; }
+  .pk b { font: 400 15px var(--hand); }
+  .pk small { font-size: 10px; color: var(--mute); }
+  .pk span { font-size: 11.5px; color: #666; line-height: 1.4; }
+  .pk:hover, .pk.on { border-color: var(--pink-deep); background: var(--pink-soft); }
+  .pk-none { margin: 4px 0 0; font-size: 12px; color: var(--mute); }
+  :global(.pbtn.sm) { font-size: 11px; padding: 2px 8px; box-shadow: 1px 1px 0 #bbb; border-width: 1.5px; }
   .chips { border: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 5px; }
   .chips legend { font: 11px var(--pixel); color: var(--pink-deep); margin-bottom: 4px; width: 100%; padding: 0; }
   .chips label { flex-direction: row; cursor: pointer; }
