@@ -11,7 +11,7 @@ const albums = (await getReferences()).map((a) => ({
   desc: a.data.desc,
   cover: a.data.cover,
   created: a.data.created ? isoDate(a.data.created) : undefined,
-  images: a.data.images.map((i) => ({ src: i.src, memo: i.memo, source: i.source, added: i.added ? isoDate(i.added) : undefined })),
+  images: a.data.images.map((i) => ({ src: i.src, memo: i.memo, source: i.source, added: i.added ? isoDate(i.added) : undefined, hash: i.hash })),
 }));
 ---
 <Base title="REFERENCE · 레퍼런스" description="주제별 레퍼런스 앨범">
@@ -44,6 +44,7 @@ const albums = (await getReferences()).map((a) => ({
         <p class="adesc" data-desc></p>
         <div class="tools">
           <button type="button" class="pbtn sm" data-rename>✎ 이름·설명</button>
+          <button type="button" class="pbtn sm" data-find-dups>🔍 같은 이미지 찾기</button>
           <button type="button" class="pbtn sm del" data-del-album>🗑 앨범 삭제</button>
         </div>
       </div>
@@ -63,6 +64,7 @@ const albums = (await getReferences()).map((a) => ({
         </details>
         <p class="progress" data-progress aria-live="polite"></p>
       </div>
+      <div class="dups" data-dups hidden></div>
       <div class="masonry" data-grid-images></div>
     </section>
 
@@ -95,7 +97,7 @@ const albums = (await getReferences()).map((a) => ({
   import { todayKey, load, save, esc, hiddenPaths, markDeleted } from '../../lib/client';
   import { getToken, commitFiles, blobToB64, yq, uid, type Repo, type Change } from '../../lib/github';
 
-  type Img = { src: string; memo?: string; source?: string; added?: string };
+  type Img = { src: string; memo?: string; source?: string; added?: string; hash?: string };
   type A = { id: string; path: string; title: string; desc?: string; cover?: string; created?: string; images: Img[]; pending?: boolean };
 
   const root = document.querySelector<HTMLElement>('.refp')!;
@@ -111,7 +113,7 @@ const albums = (await getReferences()).map((a) => ({
   /* ── 데이터: 사이트 기록 + 방금 저장한 것 − 지운 것 ── */
   const norm = (a: Partial<A>) => JSON.stringify({
     title: a.title, desc: a.desc || undefined, cover: a.cover || undefined, created: a.created,
-    images: (a.images ?? []).map((i) => ({ src: i.src, memo: i.memo || undefined, source: i.source || undefined, added: i.added })),
+    images: (a.images ?? []).map((i) => ({ src: i.src, memo: i.memo || undefined, source: i.source || undefined, added: i.added, hash: i.hash })),
   });
   const all = (): A[] => {
     const pend = load<(A & { at: number })[]>(PKEY, []).filter((p) => Date.now() - p.at < 30 * 60_000);
@@ -124,9 +126,42 @@ const albums = (await getReferences()).map((a) => ({
   const show = (src: string) => /^https?:\/\//.test(src) ? src : local.get(src) ?? (builtSrc.has(src) ? BASE + src : RAW + src.split('/').map(encodeURIComponent).join('/'));
   const coverOf = (a: A) => a.images.find((i) => i.src === a.cover) ?? a.images[0];
 
+  /* ── 같은 이미지 알아보기: 이미지 지문(모양 64칸 + 4×4 색) ── */
+  const hashes = new Map<string, string>(); // src → 지문 (계산해 둔 것)
+  const loadImg = (u: string) => new Promise<HTMLImageElement>((ok, no) => {
+    const i = new Image(); if (/^https?:/.test(u)) i.crossOrigin = 'anonymous';
+    i.onload = () => ok(i); i.onerror = () => no(new Error('load')); i.src = u;
+  });
+  const fingerprint = (img: HTMLImageElement) => {
+    const c = document.createElement('canvas'); c.width = 9; c.height = 8;
+    const x = c.getContext('2d', { willReadFrequently: true })!;
+    x.drawImage(img, 0, 0, 9, 8);
+    const d = x.getImageData(0, 0, 9, 8).data, lum = (px: number, py: number) => { const k = (py * 9 + px) * 4; return d[k] * 0.299 + d[k + 1] * 0.587 + d[k + 2] * 0.114; };
+    let bits = '';
+    for (let py = 0; py < 8; py++) for (let px = 0; px < 8; px++) bits += lum(px, py) > lum(px + 1, py) ? '1' : '0';
+    const shape = bits.match(/.{4}/g)!.map((b) => parseInt(b, 2).toString(16)).join('');
+    c.width = 4; c.height = 4; x.drawImage(img, 0, 0, 4, 4);
+    const col = [...x.getImageData(0, 0, 4, 4).data].filter((_, k) => k % 4 !== 3).map((v) => (v >> 4).toString(16)).join('');
+    return `${shape}-${col}`;
+  };
+  const hashOf = async (i: Img) => {
+    if (i.hash) return i.hash;
+    if (hashes.has(i.src)) return hashes.get(i.src);
+    try { const h = fingerprint(await loadImg(show(i.src))); hashes.set(i.src, h); return h; } catch { hashes.set(i.src, ''); return ''; }
+  };
+  const bitsDiff = (a: string, b: string) => { let n = 0; for (let k = 0; k < a.length; k++) { let v = parseInt(a[k], 16) ^ parseInt(b[k], 16); while (v) { n += v & 1; v >>= 1; } } return n; };
+  /** 거의 같은 이미지인지 (크기·저장 형식이 달라도 같은 그림이면 같다고 봐요) */
+  const same2 = (a?: string, b?: string) => {
+    if (!a || !b) return false;
+    const [sa, ca] = a.split('-'), [sb, cb] = b.split('-');
+    if (bitsDiff(sa, sb) > 6) return false;
+    let t = 0; for (let k = 0; k < ca.length; k++) t += Math.abs(parseInt(ca[k], 16) - parseInt(cb[k], 16));
+    return t / ca.length <= 1.5;
+  };
+
   const toYaml = (a: A) => [
     `title: ${yq(a.title)}`, a.desc && `desc: ${yq(a.desc)}`, a.cover && `cover: ${yq(a.cover)}`, a.created && `created: ${a.created}`,
-    a.images.length ? `images:\n${a.images.map((i) => [`  - src: ${yq(i.src)}`, i.memo && `    memo: ${yq(i.memo)}`, i.source && `    source: ${yq(i.source)}`, i.added && `    added: ${i.added}`].filter(Boolean).join('\n')).join('\n')}` : 'images: []',
+    a.images.length ? `images:\n${a.images.map((i) => [`  - src: ${yq(i.src)}`, i.memo && `    memo: ${yq(i.memo)}`, i.source && `    source: ${yq(i.source)}`, i.added && `    added: ${i.added}`, i.hash && `    hash: ${yq(i.hash)}`].filter(Boolean).join('\n')).join('\n')}` : 'images: []',
   ].filter(Boolean).join('\n') + '\n';
 
   const toast = (m: string) => { const t = document.querySelector<HTMLElement>('[data-toast]')!; t.textContent = m; t.hidden = false; clearTimeout((t as any)._t); (t as any)._t = setTimeout(() => (t.hidden = true), 4000); };
@@ -135,13 +170,15 @@ const albums = (await getReferences()).map((a) => ({
 
   /** 앨범 파일(+이미지 파일들)을 커밋 하나로 저장 */
   const commit = async (a: A, extra: Change[], msg: string) => {
-    const clean: A = { id: a.id, path: a.path, title: a.title, desc: a.desc || undefined, cover: a.cover || undefined, created: a.created, images: a.images };
+    const images = a.images.map((i) => (i.hash || !hashes.get(i.src) ? i : { ...i, hash: hashes.get(i.src) }));
+    const clean: A = { id: a.id, path: a.path, title: a.title, desc: a.desc || undefined, cover: a.cover || undefined, created: a.created, images };
     await commitFiles(repo, [...extra, { path: a.path, text: toYaml(clean) }], msg);
     save(PKEY, [...load<(A & { at: number })[]>(PKEY, []).filter((p) => p.path !== a.path), { ...clean, at: Date.now() }]);
   };
 
   /* ── 화면 그리기 ── */
   let cur: A | undefined; // 지금 열려 있는 앨범
+  let lastId = '';
   const currentId = () => decodeURIComponent(location.hash.match(/^#album=(.+)$/)?.[1] ?? '');
   const drawList = () => {
     const q = $<HTMLInputElement>('search').value.trim().toLowerCase();
@@ -172,6 +209,8 @@ const albums = (await getReferences()).map((a) => ({
     cur = id ? all().find((a) => a.id === id) : undefined;
     $('view="list"').hidden = !!cur; $('view="album"').hidden = !cur;
     $('editform').hidden = true;
+    if (!cur || cur.id !== lastId) $('dups').hidden = true;
+    lastId = cur?.id ?? '';
     if (cur) drawAlbum(); else drawList();
   };
   const refreshCur = () => { if (cur) cur = all().find((a) => a.id === cur!.id); route(); };
@@ -257,13 +296,26 @@ const albums = (await getReferences()).map((a) => ({
         prog.textContent = `🖼 이미지 준비 중… (${n + 1}/${files.length})`;
         const { blob, ext } = await prep(f);
         const src = `references/${a.id}/${stamp}-${n}.${ext}`;
-        local.set(src, URL.createObjectURL(blob));
+        const preview = URL.createObjectURL(blob);
+        const hash = await loadImg(preview).then(fingerprint).catch(() => undefined);
+        local.set(src, preview);
         changes.push({ path: `public/${src}`, base64: await blobToB64(blob) });
-        imgs.push({ src, added: todayKey() });
+        imgs.push({ src, added: todayKey(), hash });
       }
-      prog.textContent = `⬆ ${files.length}장 올리는 중…`;
-      await commit({ ...a, images: [...a.images, ...imgs] }, changes, `레퍼런스: '${a.title}'에 ${files.length}장 추가`);
-      refreshCur(); prog.textContent = ''; toast(`🖼 ${files.length}장을 넣었어요! 1~2분 뒤 사이트에 완전히 반영돼요`);
+      // 이미 앨범에 있는 이미지(또는 이번에 두 번 고른 이미지)인지 확인
+      prog.textContent = '🔍 같은 이미지가 있는지 확인 중…';
+      const old = await Promise.all(a.images.map(hashOf));
+      const dup = imgs.map((im, n) => !!im.hash && (old.some((h) => same2(h, im.hash)) || imgs.slice(0, n).some((x) => same2(x.hash, im.hash))));
+      let keep = imgs.map((_, n) => n);
+      if (dup.some(Boolean)) {
+        const k = dup.filter(Boolean).length;
+        if (confirm(`${k}장은 이 앨범에 이미 있는 이미지와 같아요.\n\n[확인] 같은 이미지는 빼고 올리기\n[취소] 그래도 모두 올리기`)) keep = keep.filter((n) => !dup[n]);
+      }
+      if (!keep.length) { prog.textContent = ''; toast('이미 앨범에 있는 이미지라서 올리지 않았어요'); return; }
+      const up = keep.map((n) => imgs[n]), upChanges = keep.map((n) => changes[n]);
+      prog.textContent = `⬆ ${up.length}장 올리는 중…`;
+      await commit({ ...a, images: [...a.images, ...up] }, upChanges, `레퍼런스: '${a.title}'에 ${up.length}장 추가`);
+      refreshCur(); prog.textContent = ''; toast(`🖼 ${up.length}장을 넣었어요!${up.length < imgs.length ? ` (같은 이미지 ${imgs.length - up.length}장은 뺐어요)` : ''} 1~2분 뒤 사이트에 완전히 반영돼요`);
     } catch (e) { prog.textContent = `⚠ ${errText(e)}`; }
     finally { busy = false; }
   };
@@ -290,6 +342,73 @@ const albums = (await getReferences()).map((a) => ({
       await commit({ ...cur!, images: [...cur!.images, { src: u, source: u, added: todayKey() }] }, [], `레퍼런스: '${cur!.title}'에 이미지 주소 추가`);
       uf.reset(); $('progress').textContent = ''; refreshCur(); toast('🔗 이미지 주소를 넣었어요');
     } catch (e) { $('progress').textContent = `⚠ ${errText(e)}`; }
+  });
+
+  /* ── 같은 이미지 찾기 → 합치기 / 한 장 지우기 ── */
+  let groups: number[][] = [];
+  const findDups = async () => {
+    const box = $('dups'); box.hidden = false; box.innerHTML = '<p class="dmsg">🔍 이미지를 비교하는 중…</p>';
+    const a = cur!, hs = await Promise.all(a.images.map(hashOf));
+    if (cur !== a) return;
+    const parent = a.images.map((_, n) => n), top = (n: number): number => (parent[n] === n ? n : (parent[n] = top(parent[n])));
+    for (let p = 0; p < a.images.length; p++) for (let q = p + 1; q < a.images.length; q++)
+      if (a.images[p].src === a.images[q].src || same2(hs[p], hs[q])) parent[top(q)] = top(p);
+    const by = new Map<number, number[]>(); a.images.forEach((_, n) => by.set(top(n), [...(by.get(top(n)) ?? []), n]));
+    groups = [...by.values()].filter((g) => g.length > 1);
+    drawDups();
+  };
+  const drawDups = () => {
+    const box = $('dups'), a = cur!;
+    if (!groups.length) { box.innerHTML = '<p class="dmsg">👍 같은 이미지가 없어요 <button type="button" class="pbtn sm" data-dups-close>닫기</button></p>'; return; }
+    box.innerHTML = `<p class="dmsg">🔍 같은 이미지 <b>${groups.length}묶음</b>을 찾았어요
+        ${groups.length > 1 ? '<button type="button" class="pbtn sm pink" data-merge-all>🔗 모두 합치기</button>' : ''}
+        <button type="button" class="pbtn sm" data-dups-close>닫기</button></p>` +
+      groups.map((g, gi) => `<div class="dgroup">
+        <div class="dlist">${g.map((n) => { const i = a.images[n]; return `<figure>
+          <img src="${esc(show(i.src))}" alt="" />
+          <figcaption>${i.src === a.cover ? '<em>★ 대표</em> ' : ''}${i.added ? `${i.added.replaceAll('-', '.')} 추가` : ''}${i.memo ? `<br><span>${esc(i.memo)}</span>` : ''}</figcaption>
+          <button type="button" class="pbtn sm del" data-dup-del="${n}">🗑 이것 지우기</button>
+        </figure>`; }).join('')}</div>
+        <button type="button" class="pbtn sm pink" data-merge="${gi}">🔗 하나로 합치기</button>
+      </div>`).join('');
+  };
+  /** 한 묶음을 한 장으로: 대표 이미지(없으면 먼저 넣은 것)를 남기고 메모·출처는 모아요 */
+  const mergeGroup = (a: A, g: number[]) => {
+    const keepN = g.find((n) => a.images[n].src === a.cover) ?? g[0];
+    const keep = a.images[keepN], rest = g.filter((n) => n !== keepN).map((n) => a.images[n]);
+    const memos = [...new Set([keep, ...rest].map((i) => i.memo?.trim()).filter(Boolean))] as string[];
+    const sources = [...new Set([keep, ...rest].map((i) => i.source?.trim()).filter(Boolean))] as string[];
+    if (sources.length > 1) memos.push(...sources.slice(1).map((s) => `출처: ${s}`));
+    const merged: Img = { ...keep, memo: memos.join('\n') || undefined, source: sources[0] };
+    const gone = new Set(rest.map((i) => i.src));
+    return { images: a.images.map((i, n) => (n === keepN ? merged : i)).filter((i, n) => n === keepN || !g.includes(n)), files: rest.filter((i) => !/^https?:/.test(i.src) && !a.images.some((x, n) => n === keepN && x.src === i.src)).map((i) => ({ path: `public/${i.src}`, remove: true })), gone };
+  };
+  $('find-dups').addEventListener('click', findDups);
+  $('dups').addEventListener('click', async (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLButtonElement>('button'); if (!t) return;
+    if (t.dataset.dupsClose !== undefined) { $('dups').hidden = true; return; }
+    if (needToken()) return;
+    let a = cur!, files: Change[] = [], msg = '', done = '';
+    if (t.dataset.dupDel) {
+      const n = Number(t.dataset.dupDel), i = a.images[n];
+      if (!confirm('이 이미지를 지울까요? 되돌릴 수 없어요.')) return;
+      const shared = a.images.some((x, k) => k !== n && x.src === i.src);
+      files = /^https?:/.test(i.src) || shared ? [] : [{ path: `public/${i.src}`, remove: true }];
+      a = { ...a, images: a.images.filter((_, k) => k !== n), cover: a.cover === i.src && !shared ? undefined : a.cover };
+      msg = `레퍼런스: '${a.title}' 같은 이미지 한 장 삭제`; done = '🗑 같은 이미지 한 장을 지웠어요';
+    } else if (t.dataset.merge || t.dataset.mergeAll !== undefined) {
+      const list = t.dataset.merge ? [groups[Number(t.dataset.merge)]] : groups;
+      // 뒤쪽 묶음부터 합쳐도 번호가 안 꼬이게, 이미지 src 기준으로 처리
+      for (const g of list) {
+        const srcs = g.map((n) => cur!.images[n]);
+        const idx = srcs.map((s) => a.images.indexOf(s)).filter((n) => n >= 0);
+        const r = mergeGroup(a, idx); a = { ...a, images: r.images }; files.push(...r.files);
+      }
+      msg = `레퍼런스: '${a.title}' 같은 이미지 합치기`; done = `🔗 ${list.length}묶음을 한 장씩으로 합쳤어요`;
+    } else return;
+    t.disabled = true; t.textContent = '저장 중…';
+    try { await commit(a, files, msg); refreshCur(); toast(done); await findDups(); }
+    catch (x) { toast(errText(x)); t.disabled = false; }
   });
 
   /* ── 크게 보기 ── */
@@ -416,6 +535,20 @@ const albums = (await getReferences()).map((a) => ({
   :global(.refp .rimg img) { width: 100%; display: block; min-height: 40px; background: #f3f3f3; }
   :global(.refp .rimg span) { display: block; padding: 4px 8px; font-size: 11.5px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   :global(.refp .rimg em) { position: absolute; top: 6px; left: 6px; font: normal 11px var(--pixel); background: var(--pink-deep); color: #fff; border-radius: 4px; padding: 0 5px; }
+
+  /* 같은 이미지 */
+  .dups { border: 2px solid var(--pink-deep); border-radius: 10px; background: var(--pink-soft); padding: 10px 12px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .dups[hidden] { display: none; }
+  .dups :global(.dmsg) { margin: 0; font-size: 13px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .dups :global(.dmsg [data-dups-close]) { margin-left: auto; }
+  .dups :global(.dgroup) { background: #fff; border: 1.5px dashed var(--pink); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+  .dups :global(.dgroup > .pbtn) { align-self: flex-end; }
+  .dups :global(.dlist) { display: flex; gap: 10px; overflow-x: auto; }
+  .dups :global(figure) { margin: 0; width: 150px; flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; }
+  .dups :global(figure img) { width: 100%; height: 110px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); background: #f3f3f3; }
+  .dups :global(figcaption) { font-size: 11px; color: var(--mute); min-height: 1.2em; }
+  .dups :global(figcaption em) { font-style: normal; color: var(--pink-deep); }
+  .dups :global(figcaption span) { color: #555; }
 
   /* 크게 보기 */
   .lb { width: min(960px, 94vw); max-height: 94vh; padding: 10px 12px 12px; border: 2px solid #333; border-radius: 12px; box-shadow: 6px 6px 0 #0004; }
