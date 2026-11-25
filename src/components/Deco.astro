@@ -3,15 +3,15 @@
 import { SITE, type Deco } from '../site.config';
 import { url } from '../lib/utils';
 
-interface Props { item?: Deco; label?: string; hint?: string; class?: string; style?: string; }
-const { item, label = '', hint = '', class: cls = '', style } = Astro.props;
+interface Props { item?: Deco; label?: string; hint?: string; class?: string; style?: string; my?: string; }
+const { item, label = '', hint = '', class: cls = '', style, my } = Astro.props;
 const src = item?.src ? url(item.src) : '';
 const Tag = item?.href ? 'a' : 'div';
 ---
 {src ? (
-  <Tag class:list={['deco', cls]} style={style} href={item?.href || undefined} rel={item?.href ? 'noopener' : undefined}>
+  <Tag class:list={['deco', cls]} style={style} href={item?.href || undefined} rel={item?.href ? 'noopener' : undefined} data-my-img={my} data-my-label={label}>
     <img src={src} alt={item?.alt ?? ''} loading="lazy" />
   </Tag>
 ) : SITE.showPlaceholders ? (
-  <div class:list={['deco', 'ph', cls]} style={style} aria-hidden="true"><span><b>{label}</b>{hint}</span></div>
+  <div class:list={['deco', 'ph', cls]} style={style} aria-hidden="true" data-my-img={my} data-my-label={label}><span><b>{label}</b>{hint}</span></div>
 ) : null}

@@ -1,0 +1,254 @@
+---
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import { SITE } from '../../site.config';
+import { url, getThoughts } from '../../lib/utils';
+
+const thoughts = (await getThoughts()).map((t) => ({ path: t.filePath, at: t.data.at, text: (t.body ?? '').trim() }));
+---
+<Base title="THOUGHT · 생각" description="그때그때 떠오르는 생각과 문장">
+  <meta slot="head" name="robots" content="noindex" />
+  <PageHead en="THOUGHT" ko="생각" desc="떠오르는 대로, 막힘없이. 지금의 마음을 그대로 남겨요." />
+
+  <div class="th" data-thoughts={JSON.stringify(thoughts)} data-repo={JSON.stringify(SITE.repo)}>
+    <div class="paper" data-paper>
+      <div class="ptop">
+        <time data-now></time>
+        <button type="button" class="pfocus" data-focus title="집중 모드 (화면 가득 쓰기)">⛶ 집중</button>
+      </div>
+      <textarea data-text rows="4" aria-label="생각 쓰기" placeholder="지금 드는 생각을 그대로…" spellcheck="false"></textarea>
+      <div class="pbot">
+        <span class="hint"><kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd>로 남기기 · 쓰는 중인 글은 자동으로 보관돼요</span>
+        <button type="button" class="pbtn pink" data-post>💭 남기기</button>
+      </div>
+      <p class="flash" data-flash aria-live="polite"></p>
+    </div>
+
+    <p class="notice" data-notice hidden></p>
+
+    <div class="stream" data-stream></div>
+    <button type="button" class="pbtn more" data-more hidden>더 보기</button>
+  </div>
+  <p class="tokenhelp" data-tokenhelp hidden>🔑 사이트에 남기려면 <a href={url('/etc/settings#github')}>설정 › GitHub 연결</a>이 필요해요. 그 전까지 쓴 생각은 이 브라우저에 안전하게 보관돼 있어요.</p>
+</Base>
+
+<script>
+  import { load, save, esc, pad, hiddenPaths, markDeleted } from '../../lib/client';
+  import { getToken, createFile, updateFile, deleteFile, yq, uid, type Repo } from '../../lib/github';
+
+  type T = { path: string; at: string; text: string; state?: 'pending' | 'sending' | 'waiting' };
+  type Out = { path: string; at: string; text: string; fail?: string };
+
+  const root = document.querySelector<HTMLElement>('.th')!;
+  const $ = <E extends HTMLElement = HTMLElement>(s: string) => root.querySelector<E>(`[data-${s}]`)!;
+  const repo: Repo = JSON.parse(root.dataset.repo!);
+  const built: T[] = JSON.parse(root.dataset.thoughts || '[]');
+  const ta = $<HTMLTextAreaElement>('text');
+  const DAYS = '일월화수목금토';
+  const OUT = 'thought.outbox', PEND = 'pending.thought', DRAFT = 'draft.thought';
+  const nowKey = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
+  const dayLabel = (at: string) => { const d = new Date(at.slice(0, 10) + 'T00:00'); return `${d.getFullYear() !== new Date().getFullYear() ? `${d.getFullYear()}년 ` : ''}${d.getMonth() + 1}월 ${d.getDate()}일 (${DAYS[d.getDay()]})`; };
+  const toFile = (t: { at: string; text: string }) => `---\nat: ${yq(t.at)}\n---\n${t.text}\n`;
+
+  /* ── 모든 생각: 사이트 + 반영 중 + 아직 못 올린 것 ── */
+  const all = (): T[] => {
+    const pend = load<(T & { ts: number })[]>(PEND, []).filter((p) => Date.now() - p.ts < 30 * 60_000);
+    const fresh = pend.filter((p) => { const b = built.find((x) => x.path === p.path); return !b || b.text !== p.text.trim(); });
+    save(PEND, fresh);
+    const gone = hiddenPaths('thought', built.map((b) => b.path));
+    const out = load<Out[]>(OUT, []);
+    return [
+      ...built.filter((b) => !gone.has(b.path) && !fresh.some((p) => p.path === b.path) && !out.some((o) => o.path === b.path)),
+      ...fresh.filter((p) => !out.some((o) => o.path === p.path)).map((p) => ({ ...p, state: 'pending' as const })),
+      ...out.map((o) => ({ ...o, state: (sending.has(o.path) ? 'sending' : 'waiting') as T['state'] })),
+    ].sort((a, b) => b.at.localeCompare(a.at) || b.path.localeCompare(a.path));
+  };
+
+  /* ── 흐름 그리기 (날짜별) ── */
+  let shown = 40, editing = '';
+  const sending = new Set<string>();
+  const badge = (t: T) => t.state === 'sending' ? '<span class="st">⏳ 올리는 중</span>'
+    : t.state === 'waiting' ? '<span class="st warn">📥 아직 이 브라우저에만</span>'
+      : t.state === 'pending' ? '<span class="st">반영 중</span>' : '';
+  const draw = () => {
+    const list = all();
+    let html = '', day = '';
+    for (const t of list.slice(0, shown)) {
+      const d = t.at.slice(0, 10);
+      if (d !== day) { html += `${day ? '</section>' : ''}<section class="day"><h3>${dayLabel(t.at)}</h3>`; day = d; }
+      const ed = editing === t.path;
+      html += `<article class="t${t.state ? ' ' + t.state : ''}${ed ? ' editing' : ''}" data-id="${esc(t.path)}">
+        <time>${t.at.slice(11, 16)}</time>
+        ${ed ? `<div class="ed"><textarea data-edit-text aria-label="생각 고치기">${esc(t.text)}</textarea>
+            <div class="edb"><button type="button" class="pbtn sm" data-edit-cancel>취소</button><button type="button" class="pbtn sm pink" data-edit-save>💾 저장</button></div></div>`
+          : `<p class="tx">${esc(t.text).replace(/\n/g, '<br>')}</p>`}
+        <span class="side">${badge(t)}${ed ? '' : `<span class="acts"><button type="button" data-edit title="고치기" aria-label="고치기">✎</button><button type="button" data-del title="지우기" aria-label="지우기">🗑</button></span>`}</span>
+      </article>`;
+    }
+    $('stream').innerHTML = list.length ? html + '</section>' : '<p class="empty">아직 남긴 생각이 없어요. 위 종이에 떠오르는 대로 적어 보세요 ✎</p>';
+    $('more').hidden = list.length <= shown;
+    // 못 올린 생각 안내
+    const out = load<Out[]>(OUT, []), waiting = out.filter((o) => !sending.has(o.path));
+    const n = $('notice');
+    n.hidden = !waiting.length;
+    if (waiting.length) {
+      const why = !getToken() ? '🔑 GitHub에 연결되면 올라가요' : waiting.find((o) => o.fail)?.fail ?? '';
+      n.innerHTML = `📥 아직 이 브라우저에만 있는 생각 <b>${waiting.length}개</b> ${why ? `<small>— ${esc(why)}</small>` : ''} <button type="button" class="pbtn sm" data-retry>↻ 다시 올리기</button>`;
+    }
+    (document.querySelector('[data-tokenhelp]') as HTMLElement).hidden = !!getToken() || !out.length;
+  };
+
+  /* ── 올리기: 먼저 브라우저에 보관 → 차례로 GitHub에 ── */
+  let flushing = false;
+  const flush = async () => {
+    if (flushing || !getToken()) { draw(); return; }
+    flushing = true;
+    try {
+      for (;;) {
+        const out = load<Out[]>(OUT, []);
+        const o = out.find((x) => !sending.has(x.path)); if (!o) break;
+        sending.add(o.path); draw();
+        try {
+          await createFile(repo, o.path, toFile(o), `생각: ${o.at.replace('T', ' ')}`);
+          save(OUT, load<Out[]>(OUT, []).filter((x) => x.path !== o.path));
+          save(PEND, [...load<(T & { ts: number })[]>(PEND, []).filter((p) => p.path !== o.path), { path: o.path, at: o.at, text: o.text, ts: Date.now() }]);
+        } catch (e) {
+          save(OUT, load<Out[]>(OUT, []).map((x) => (x.path === o.path ? { ...x, fail: (e as Error).message === 'NO_TOKEN' ? '' : (e as Error).message } : x)));
+          sending.delete(o.path); break;
+        }
+        sending.delete(o.path);
+      }
+    } finally { flushing = false; draw(); }
+  };
+
+  /* ── 쓰기 ── */
+  const PROMPTS = ['지금 드는 생각을 그대로…', '오늘 문득 깨달은 것', '머릿속을 맴도는 문장', '아무에게도 하지 않은 말', '지금 이 마음', '살면서 알게 된 것'];
+  const grow = () => { ta.style.height = 'auto'; ta.style.height = `${Math.max(ta.scrollHeight, root.classList.contains('focus') ? 0 : 128)}px`; };
+  const flash = (m: string) => { const f = $('flash'); f.textContent = m; f.classList.add('on'); clearTimeout((f as any)._t); (f as any)._t = setTimeout(() => f.classList.remove('on'), 1800); };
+  const post = () => {
+    const text = ta.value.replace(/\s+$/, '').replace(/^\s*\n/, '');
+    if (!text.trim()) { ta.focus(); return; }
+    const at = nowKey();
+    save(OUT, [...load<Out[]>(OUT, []), { path: `src/content/thoughts/${at.slice(0, 10)}-${uid()}.md`, at, text }]);
+    ta.value = ''; save(DRAFT, ''); grow();
+    ta.placeholder = PROMPTS[Math.floor(Math.random() * PROMPTS.length)];
+    ta.focus(); flash('💭 남겼어요'); draw(); flush();
+  };
+  ta.value = load(DRAFT, ''); grow();
+  ta.addEventListener('input', () => { save(DRAFT, ta.value); grow(); });
+  ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); post(); } });
+  $('post').addEventListener('click', post);
+  if (matchMedia('(pointer: fine)').matches) ta.focus({ preventScroll: true });
+  const tick = () => { const d = new Date(); $('now').textContent = `${d.getMonth() + 1}.${d.getDate()} (${DAYS[d.getDay()]}) ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  tick(); setInterval(tick, 15_000);
+
+  /* ── 집중 모드: 종이만 화면 가득 ── */
+  const setFocus = (on: boolean) => {
+    root.classList.toggle('focus', on); document.documentElement.classList.toggle('th-focus', on);
+    $('focus').textContent = on ? '✕ 나가기' : '⛶ 집중'; grow(); ta.focus();
+  };
+  $('focus').addEventListener('click', () => setFocus(!root.classList.contains('focus')));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && root.classList.contains('focus')) setFocus(false); });
+
+  /* ── 고치기 / 지우기 / 다시 올리기 ── */
+  const toast = (m: string) => flash(m);
+  root.addEventListener('click', async (e) => {
+    const t = e.target as HTMLElement;
+    if (t.closest('[data-retry]')) { save(OUT, load<Out[]>(OUT, []).map(({ fail, ...o }) => o)); if (!getToken()) toast('🔑 먼저 설정 › GitHub 연결이 필요해요'); flush(); return; }
+    if (t.closest('[data-more]')) { shown += 40; draw(); return; }
+    const art = t.closest<HTMLElement>('article.t'); if (!art) return;
+    const path = art.dataset.id!, item = all().find((x) => x.path === path); if (!item) return;
+    if (t.closest('[data-edit]')) { editing = path; draw(); const ed = root.querySelector<HTMLTextAreaElement>('[data-edit-text]')!; ed.focus(); ed.setSelectionRange(ed.value.length, ed.value.length); ed.style.height = `${ed.scrollHeight}px`; return; }
+    if (t.closest('[data-edit-cancel]')) { editing = ''; draw(); return; }
+    if (t.closest('[data-edit-save]')) { await saveEdit(item, art); return; }
+    if (t.closest('[data-del]')) {
+      if (!confirm('이 생각을 지울까요? 되돌릴 수 없어요.')) return;
+      const out = load<Out[]>(OUT, []);
+      if (out.some((o) => o.path === path)) { if (sending.has(path)) { toast('올리는 중이라 잠시 뒤에 지워 주세요'); return; } save(OUT, out.filter((o) => o.path !== path)); draw(); toast('🗑 지웠어요'); return; }
+      if (!getToken()) { toast('🔑 먼저 설정 › GitHub 연결이 필요해요'); return; }
+      try { await deleteFile(repo, path, `생각: ${item.at.replace('T', ' ')} 삭제`); markDeleted('thought', path); draw(); toast('🗑 지웠어요'); }
+      catch (x) { toast((x as Error).message); }
+    }
+  });
+  const saveEdit = async (item: T, art: HTMLElement) => {
+    const text = art.querySelector<HTMLTextAreaElement>('[data-edit-text]')!.value.replace(/\s+$/, '');
+    if (!text.trim()) { toast('비워 둘 수는 없어요. 지우려면 🗑을 눌러 주세요'); return; }
+    const out = load<Out[]>(OUT, []);
+    if (out.some((o) => o.path === item.path)) { save(OUT, out.map((o) => (o.path === item.path ? { ...o, text } : o))); editing = ''; draw(); return; }
+    if (!getToken()) { toast('🔑 먼저 설정 › GitHub 연결이 필요해요'); return; }
+    try {
+      await updateFile(repo, item.path, toFile({ at: item.at, text }), `생각: ${item.at.replace('T', ' ')} (수정)`);
+      save(PEND, [...load<(T & { ts: number })[]>(PEND, []).filter((p) => p.path !== item.path), { path: item.path, at: item.at, text, ts: Date.now() }]);
+      editing = ''; draw(); toast('💾 고쳤어요');
+    } catch (x) { toast((x as Error).message); }
+  };
+  root.addEventListener('keydown', (e) => {
+    const ed = (e.target as HTMLElement).closest('[data-edit-text]'); if (!ed) return;
+    if (e.key === 'Escape') { e.stopPropagation(); editing = ''; draw(); }
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); const art = ed.closest<HTMLElement>('article.t')!; const it = all().find((x) => x.path === art.dataset.id); if (it) saveEdit(it, art); }
+  });
+  root.addEventListener('input', (e) => { const ed = e.target as HTMLTextAreaElement; if (ed.matches('[data-edit-text]')) { ed.style.height = 'auto'; ed.style.height = `${ed.scrollHeight}px`; } });
+
+  // 연결 상태가 바뀌었거나 창으로 돌아오면 못 올린 생각 다시 시도
+  window.addEventListener('online', flush);
+  window.addEventListener('focus', () => { if (load<Out[]>(OUT, []).length) flush(); });
+  draw(); flush();
+</script>
+
+<style>
+  .paper { position: relative; border: 2px solid #555; border-radius: 12px; box-shadow: 3px 3px 0 #bbb; background: #fffdfb; padding: 10px 16px 12px; margin-bottom: 18px; }
+  .ptop { display: flex; justify-content: space-between; align-items: center; font: 11px var(--pixel); color: var(--mute); margin-bottom: 4px; }
+  .pfocus { font: 11px var(--pixel); background: none; border: 1.5px solid var(--line); border-radius: 6px; padding: 1px 8px; color: var(--mute); cursor: pointer; }
+  .pfocus:hover { border-color: var(--pink-deep); color: var(--pink-deep); }
+  textarea[data-text] {
+    display: block; width: 100%; box-sizing: border-box; resize: none; overflow: hidden; border: none; outline: none; padding: 0 2px;
+    font: 21px/34px var(--hand); color: var(--ink); min-height: 128px;
+    background: repeating-linear-gradient(transparent 0 33px, #f1d5df 33px 34px); background-attachment: local;
+  }
+  textarea[data-text]::placeholder { color: #c4b3b9; }
+  .pbot { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .hint { margin-right: auto; font-size: 11px; color: var(--mute); }
+  kbd { font: 10px var(--pixel); border: 1px solid #ccc; border-bottom-width: 2px; border-radius: 3px; padding: 0 3px; background: #fff; }
+  .flash { position: absolute; left: 50%; bottom: -12px; transform: translate(-50%, 0); margin: 0; font: 12px var(--pixel); color: #fff; background: var(--pink-deep); border-radius: 10px; padding: 2px 12px; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; white-space: nowrap; }
+  :global(.th .flash.on) { opacity: 1; transform: translate(-50%, 6px); }
+
+  /* 집중 모드 */
+  :global(.th.focus .paper) { position: fixed; inset: 0; z-index: 300; margin: 0; border: none; border-radius: 0; box-shadow: none; display: flex; flex-direction: column; padding: 4vh max(18px, calc(50vw - 380px)) 3vh; background: #fffaf7; }
+  :global(.th.focus textarea[data-text]) { flex: 1; overflow-y: auto; font-size: 23px; line-height: 38px; background: repeating-linear-gradient(transparent 0 37px, #f1d5df 37px 38px); background-attachment: local; }
+  :global(html.th-focus) { overflow: hidden; }
+
+  .notice { margin: 0 0 14px; padding: 8px 12px; border: 1.5px dashed var(--pink); border-radius: 8px; background: var(--pink-soft); font-size: 12.5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .notice[hidden] { display: none; }
+  .notice :global(small) { color: #777; }
+  .notice :global(button) { margin-left: auto; }
+  .tokenhelp { font-size: 12px; color: var(--mute); }
+
+  /* 흐름 */
+  .stream :global(.day) { margin-bottom: 18px; }
+  .stream :global(h3) { font: 400 12px var(--pixel); color: var(--pink-deep); margin: 0 0 6px; padding-bottom: 4px; border-bottom: 2px dashed var(--line); }
+  .stream :global(.t) { display: grid; grid-template-columns: 46px 1fr auto; gap: 10px; align-items: baseline; padding: 6px 4px; border-radius: 8px; }
+  .stream :global(.t:hover) { background: #faf6f7; }
+  .stream :global(.t time) { font: 11px var(--pixel); color: var(--mute); }
+  .stream :global(.t .tx) { margin: 0; font: 19px/1.65 var(--hand); color: var(--ink); white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+  .stream :global(.t.waiting .tx), .stream :global(.t.sending .tx) { color: #6b6b6b; }
+  .stream :global(.t .side) { display: flex; align-items: center; gap: 6px; }
+  .stream :global(.st) { font: 10px var(--pixel); color: var(--pink-deep); white-space: nowrap; }
+  .stream :global(.st.warn) { color: #b06a00; }
+  .stream :global(.acts) { display: flex; gap: 2px; opacity: 0; transition: opacity .15s; }
+  .stream :global(.t:hover .acts), .stream :global(.t:focus-within .acts) { opacity: 1; }
+  .stream :global(.acts button) { border: none; background: none; cursor: pointer; font-size: 13px; color: var(--mute); padding: 2px 4px; border-radius: 4px; }
+  .stream :global(.acts button:hover) { background: var(--pink-soft); }
+  .stream :global(.ed) { display: flex; flex-direction: column; gap: 6px; }
+  .stream :global(.ed textarea) { font: 19px/1.65 var(--hand); border: 2px solid var(--pink); border-radius: 8px; padding: 6px 8px; resize: none; overflow: hidden; min-height: 60px; }
+  .stream :global(.edb) { display: flex; justify-content: flex-end; gap: 6px; }
+  :global(.pbtn.sm) { font-size: 11px; padding: 2px 8px; box-shadow: 1px 1px 0 #bbb; border-width: 1.5px; }
+  .more { display: block; margin: 0 auto; }
+  .more[hidden] { display: none; }
+  @media (hover: none) { .stream :global(.acts) { opacity: .7; } }
+  @media (max-width: 860px) {
+    .hint { display: none; }
+    .pbot { justify-content: flex-end; }
+    .stream :global(.t) { grid-template-columns: 1fr auto; }
+    .stream :global(.t time) { grid-column: 1 / -1; }
+  }
+</style>

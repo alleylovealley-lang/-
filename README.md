@@ -3,20 +3,21 @@
 평생 쓸 개인 웹사이트입니다. 블로그 · 포트폴리오 · 디지털 정원 · 소개 페이지가 한곳에 있습니다.
 [Astro](https://astro.build)로 만든 정적 사이트이며, **모든 콘텐츠는 평범한 마크다운 파일**이라 도구가 바뀌어도 그대로 옮길 수 있습니다.
 
-## 꾸미기 이미지 넣기
+## 프로필·꾸미기 이미지 바꾸기
 
-헤더 배너, 프로필 사진, 세로 배너, 메뉴 제목 등 회색 줄무늬 칸은 모두 이미지로 바꿀 수 있어요.
+사이트의 **설정 › 프로필·꾸미기**에서 바로 바꿀 수 있어요 (GitHub 연결 필요).
 
-1. 이미지 파일을 `public/images/deco/` 폴더에 넣기 (gif 움짤도 가능)
-2. `src/site.config.ts`의 `images` 부분에 `'/images/deco/파일이름.png'` 적기
-3. 다 꾸몄으면 `showPlaceholders: false`로 바꾸면 빈 칸이 숨겨져요
+- 이름, 상태 메시지, 사이트 이름(탭 제목), 내 정보 항목
+- 프로필 사진, 헤더 배너, 세로 배너, 메뉴 제목 이미지 — 🖼 고르기 / ✕ 비우기 (gif 움짤도 OK, 큰 이미지는 알맞게 줄여서 저장)
+
+저장하면 값은 `src/data/site.json`에, 이미지는 `public/images/deco/`에 들어가요. 다 꾸몄으면 `src/site.config.ts`에서 `showPlaceholders: false`로 바꾸면 빈 칸이 숨겨져요.
 
 블로그 글 썸네일은 글 맨 위에 `cover: /images/posts/사진.jpg`를 적으면 됩니다.
 색과 글꼴은 `src/styles/global.css` 맨 위에서 바꿀 수 있어요. 글꼴 파일은 `public/fonts/`에 들어 있어요 (눈누: Neo둥근모, 온글잎 박다현체 / 본문: 고운돋움).
 
 ## 가장 먼저 할 일
 
-1. `src/site.config.ts` — 이름, 소개 문구, 링크(GitHub, 이메일 등) 수정
+1. 사이트의 설정 › 프로필·꾸미기에서 이름·사진 바꾸기, `src/site.config.ts`에서 소개 문구·링크 수정
 2. `src/pages/about.md` — 소개 페이지 내용 작성
 
 ## 사이트 안에서 바로 쓰기
@@ -34,7 +35,7 @@
 | 메뉴 | 폴더 | 형식 |
 | --- | --- | --- |
 | RECORD › 일기 | `src/content/diary/` | `.md` — `idiom`(오늘의 사자성어), `line`(한 줄 정리), `done`(오늘 한 일 목록) · 사자성어 고르기 목록은 `src/lib/idioms.ts` |
-| RECORD › 스크랩북 | `src/content/scrapbook/` | `.md` — `kind: image / link / quote` |
+| RECORD › 생각 | `src/content/thoughts/` | `.md` — 사이트의 생각 탭에서 바로 써요. 생각 하나 = 파일 하나 (`at` 쓴 때, 본문 = 생각) |
 | RECORD › 메모 | `src/content/memo/` | `.md` — `tags: [백업]`이면 백업 메모 |
 | LIFE › 일정 | `src/content/schedule/` | `.yaml` — `dday: true`면 D-Day |
 | LIFE › 할 일 | `src/content/todo/` | `.yaml` — `done: true`면 완료(퀘스트 포인트) |
@@ -90,7 +91,8 @@ npm run dev   # http://localhost:4321 에서 실시간 미리보기
 
 ```
 src/
-  site.config.ts     ← 사이트 설정 (이름, 메뉴, 꾸미기 이미지)
+  site.config.ts     ← 사이트 설정 (메뉴, 소개 문구)
+  data/site.json     ← 이름·프로필·꾸미기 이미지 (설정 화면에서 바꿔요)
   content/           ← 모든 기록 (여기만 건드리면 됨)
   pages/             ← 페이지 구성
   components/ layouts/ styles/  ← 디자인

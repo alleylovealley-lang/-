@@ -3,10 +3,54 @@ import Base from '../../layouts/Base.astro';
 import PageHead from '../../components/PageHead.astro';
 import Box from '../../components/Box.astro';
 import { SITE } from '../../site.config';
+import my from '../../data/site.json';
+import { url } from '../../lib/utils';
+const TILES = [
+  { k: 'photo', name: '프로필 사진', hint: '좌측 위 · 정사각형 추천' },
+  { k: 'banner', name: '헤더 배너', hint: '맨 위 · 가로로 긴 이미지 (1400×160 정도)' },
+  { k: 'sideBanner', name: '세로 배너', hint: '우측바 · 세로로 긴 이미지 (210×560 정도)' },
+  { k: 'navTitle', name: '메뉴 제목 이미지', hint: '좌측 메뉴 위 · 190×46 정도' },
+];
 ---
 <Base title="SETTINGS · 설정">
   <meta slot="head" name="robots" content="noindex" />
-  <PageHead en="SETTINGS" ko="설정" desc="이 브라우저에서 보이는 방식과, 브라우저에 저장된 데이터를 관리해요." />
+    <PageHead en="SETTINGS" ko="설정" desc="프로필과 꾸미기, 보이는 방식, 브라우저에 저장된 데이터를 관리해요." tabs={[{ label: '프로필·꾸미기', href: '#profile' }, { label: 'GitHub 연결', href: '#github' }, { label: '화면', href: '#display' }]} />
+
+  <Box title="PROFILE" sub="프로필·꾸미기" id="profile">
+    <div class="pf" data-pf={JSON.stringify(my)} data-pf-repo={JSON.stringify(SITE.repo)} data-pf-base={url('/')}>
+      <p class="pf-note" data-pf-notoken hidden>🔑 저장하려면 아래 <a href="#github">GitHub 연결</a>이 먼저 필요해요.</p>
+      <div class="pf-fields">
+        <label>이름 <small>(좌측 위 프로필, 맨 아래)</small><input type="text" name="pf-name" maxlength="20" /></label>
+        <label>상태 메시지 <small>(이름 아래 한 줄, 비워도 돼요)</small><input type="text" name="pf-status" maxlength="40" placeholder="예: ☁ 오늘도 기록 중" /></label>
+        <label>사이트 이름 <small>(브라우저 탭 제목)</small><input type="text" name="pf-title" maxlength="30" /></label>
+      </div>
+      <div class="pf-items">
+        <p class="pf-cap">내 정보 <small>(프로필의 ▸ 내 정보를 누르면 보여요)</small></p>
+        <div data-pf-items></div>
+        <button type="button" class="pbtn sm" data-pf-add>＋ 항목 추가</button>
+      </div>
+      <p class="pf-cap">이미지 <small>(gif 움짤도 OK · 큰 이미지는 알맞게 줄여서 저장해요)</small></p>
+      <div class="pf-tiles">
+        {TILES.map((t) => (
+          <div class="tile" data-tile={t.k}>
+            <div class:list={['prev', t.k]} data-prev={t.k}></div>
+            <b>{t.name}</b><small>{t.hint}</small>
+            <div class="tb">
+              <button type="button" class="pbtn sm" data-pick={t.k}>🖼 고르기</button>
+              <button type="button" class="pbtn sm" data-clear={t.k}>✕ 비우기</button>
+            </div>
+            <input type="file" accept="image/*" hidden data-file={t.k} />
+          </div>
+        ))}
+      </div>
+      <p class="pf-err" data-pf-err aria-live="polite"></p>
+      <div class="pf-foot">
+        <span class="changed" data-pf-changed hidden>✎ 바뀐 내용이 있어요</span>
+        <button type="button" class="pbtn" data-pf-reset>되돌리기</button>
+        <button type="button" class="pbtn pink" data-pf-save>💾 저장하기</button>
+      </div>
+    </div>
+  </Box>
 
   <Box title="GITHUB" sub="사이트 안에서 기록 저장하기" id="github">
     <div class="gh-box" data-repo={JSON.stringify(SITE.repo)}>
@@ -31,7 +75,7 @@ import { SITE } from '../../site.config';
     </div>
   </Box>
 
-  <Box title="DISPLAY" sub="화면">
+  <Box title="DISPLAY" sub="화면" id="display">
     <div class="row"><span>글자 크기</span>
       <div class="filter" role="group" aria-label="글자 크기" data-group="zoom">
         <button type="button" data-v="0.9">작게</button><button type="button" data-v="1">보통</button><button type="button" data-v="1.1">크게</button><button type="button" data-v="1.2">아주 크게</button>
@@ -65,7 +109,7 @@ import { SITE } from '../../site.config';
   </Box>
 
   <Box title="SITE" sub="사이트 정보 바꾸기">
-    <p class="small">이름, 소개 문구, 메뉴, 꾸미기 이미지는 <code>src/site.config.ts</code>에서, 색과 글꼴은 <code>src/styles/global.css</code>에서 바꿀 수 있어요.</p>
+    <p class="small">이름·사진·배너는 위 <a href="#profile">프로필·꾸미기</a>에서 바꿔요. 소개 문구와 메뉴는 <code>src/site.config.ts</code>에서, 색과 글꼴은 <code>src/styles/global.css</code>에서 바꿀 수 있어요.</p>
   </Box>
 </Base>
 <script>
@@ -76,7 +120,7 @@ import { SITE } from '../../site.config';
   const LABEL: Record<string, string> = {
     coins: '🪙 코인', bonus: '🎁 출석 보너스', pet: '🐣 다마고치', 'fish.bucket': '🪣 낚시 바구니', 'fish.bucket2': '🪣 낚시 바구니(크기)', 'fish.dex': '📖 낚시 도감', 'fish.best': '📏 낚시 최고 기록',
     'shop': '🍦 아이스크림 가게', 'br31.record': '🔢 (예전) 31 전적', 'br31.level': '🔢 (예전) 31 난이도', 'roulette.hist': '🎡 룰렛 기록', habit: '✔ 습관 체크',
-    moodboard: '🎨 자유 무드보드', 'gh.token': '🔑 GitHub 열쇠', 'nav-folded': '☰ 접은 메뉴', zoom: '🔠 글자 크기', marquee: '✧ 흐르는 문구',
+    moodboard: '🎨 자유 무드보드', 'thought.outbox': '💭 아직 못 올린 생각', 'draft.thought': '💭 쓰던 생각', 'pending.site': '👤 반영 중인 프로필', 'gh.token': '🔑 GitHub 열쇠', 'nav-folded': '☰ 접은 메뉴', zoom: '🔠 글자 크기', marquee: '✧ 흐르는 문구',
   };
   const GAME = ['coins', 'bonus', 'pet', 'fish.bucket', 'fish.bucket2', 'fish.dex', 'fish.best', 'br31.record', 'br31.level', 'roulette.hist', 'shop'];
   const keys = () => { const out: string[] = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i)!; if (k.startsWith('hong.')) out.push(k.slice(5)); } } catch {} return out.sort(); };
@@ -120,7 +164,8 @@ import { SITE } from '../../site.config';
   document.querySelectorAll<HTMLButtonElement>('[data-reset]').forEach((b) => b.addEventListener('click', () => {
     const t = b.dataset.reset!;
     const target = t === 'game' ? GAME : t === 'habit' ? ['habit'] : keys();
-    if (!confirm(t === 'all' ? '이 브라우저에 저장된 모든 데이터를 지울까요? 되돌릴 수 없어요.' : '정말 초기화할까요? 되돌릴 수 없어요.')) return;
+    const unsent = t === 'all' ? load<unknown[]>('thought.outbox', []).length : 0;
+    if (!confirm((t === 'all' ? '이 브라우저에 저장된 모든 데이터를 지울까요? 되돌릴 수 없어요.' : '정말 초기화할까요? 되돌릴 수 없어요.') + (unsent ? `\n\n⚠ 아직 사이트에 못 올린 생각 ${unsent}개도 함께 지워져요.` : ''))) return;
     target.forEach((k) => { try { localStorage.removeItem('hong.' + k); } catch {} });
     say('초기화했어요'); drawTable(); window.dispatchEvent(new Event('coins'));
     if (t === 'all') { groups.zoom = '1'; groups.marquee = 'on'; applyDisplay(); }
@@ -146,7 +191,159 @@ import { SITE } from '../../site.config';
   $('gh-remove').addEventListener('click', () => { setToken(''); try { localStorage.removeItem('hong.gh.token'); } catch {} showState(); drawTable(); });
   showState();
 </script>
+<script>
+  import { load, save, esc } from '../../lib/client';
+  import { getToken, commitFiles, blobToB64, type Repo, type Change } from '../../lib/github';
+
+  type My = { name: string; title: string; status: string; items: { label: string; value: string }[]; photo: string; banner: string; sideBanner: string; navTitle: string };
+  type ImgKey = 'photo' | 'banner' | 'sideBanner' | 'navTitle';
+  const IMGS: ImgKey[] = ['photo', 'banner', 'sideBanner', 'navTitle'];
+  const MAX: Record<ImgKey, number> = { photo: 480, banner: 2400, sideBanner: 900, navTitle: 800 };
+  const box = document.querySelector<HTMLElement>('[data-pf]')!;
+  const q = <E extends HTMLElement = HTMLElement>(s: string) => box.querySelector<E>(s)!;
+  const built: My = JSON.parse(box.dataset.pf!);
+  const repo: Repo = JSON.parse(box.dataset.pfRepo!);
+  const BASE = box.dataset.pfBase!;
+  const RAW = `https://raw.githubusercontent.com/${repo.owner}/${repo.name}/${repo.branch}/public/`;
+  /** 저장소에 지금 있는 값 (방금 저장해서 반영 중이면 그 값) */
+  const current = (): My => { const p = load<{ data: My; ts: number } | null>('pending.site', null); return p && Date.now() - p.ts < 30 * 60_000 ? p.data : built; };
+  let base = current();
+  let draft: My = structuredClone(base);
+  const staged = new Map<ImgKey, { blob: Blob; ext: string; url: string }>();
+  const local: Partial<Record<ImgKey, string>> = {}; // 이 화면에서 올린 이미지 미리보기
+  const shownUrl = (k: ImgKey) => {
+    const st = staged.get(k); if (st) return st.url;
+    const v = draft[k]; if (!v) return '';
+    if (local[k] && v === base[k]) return local[k]!;
+    return /^https?:/.test(v) ? v : (v === built[k] ? BASE : RAW) + v.replace(/^\//, '');
+  };
+
+  const field = (n: string) => q<HTMLInputElement>(`[name="pf-${n}"]`);
+  const drawItems = () => {
+    q('[data-pf-items]').innerHTML = draft.items.map((it, i) => `<div class="irow" data-i="${i}">
+      <input type="text" data-k="label" value="${esc(it.label)}" placeholder="항목 (예: 생일)" maxlength="12" aria-label="항목 이름" />
+      <input type="text" data-k="value" value="${esc(it.value)}" placeholder="내용 (예: 1월 1일)" maxlength="40" aria-label="항목 내용" />
+      <button type="button" class="idel" data-idel="${i}" aria-label="이 항목 지우기">✕</button></div>`).join('') || '<p class="muted small">아직 항목이 없어요</p>';
+  };
+  const drawImgs = () => IMGS.forEach((k) => {
+    const u = shownUrl(k), el = q(`[data-prev="${k}"]`);
+    el.innerHTML = u ? `<img src="${esc(u)}" alt="" />` : '<span>비어 있음</span>';
+    el.classList.toggle('empty', !u);
+    q<HTMLButtonElement>(`[data-clear="${k}"]`).disabled = !u;
+  });
+  const dirty = () => staged.size > 0 || JSON.stringify(draft) !== JSON.stringify(base);
+  const mark = () => { q('[data-pf-changed]').hidden = !dirty(); };
+  const fill = () => {
+    (['name', 'status', 'title'] as const).forEach((n) => (field(n).value = draft[n] ?? ''));
+    drawItems(); drawImgs(); mark();
+    q('[data-pf-notoken]').hidden = !!getToken();
+  };
+  (['name', 'status', 'title'] as const).forEach((n) => field(n).addEventListener('input', () => { draft[n] = field(n).value; mark(); }));
+  q('[data-pf-items]').addEventListener('input', (e) => {
+    const inp = e.target as HTMLInputElement, row = inp.closest<HTMLElement>('.irow'); if (!row) return;
+    const it = draft.items[Number(row.dataset.i)]; if (inp.dataset.k === 'label') it.label = inp.value; else it.value = inp.value; mark();
+  });
+  q('[data-pf-items]').addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-idel]'); if (!b) return;
+    draft.items.splice(Number(b.dataset.idel), 1); drawItems(); mark();
+  });
+  q('[data-pf-add]').addEventListener('click', () => { draft.items.push({ label: '', value: '' }); drawItems(); mark(); q<HTMLInputElement>('[data-pf-items] .irow:last-child input').focus(); });
+
+  /* ── 이미지 고르기 (큰 이미지는 줄이기, gif는 그대로, png는 투명 배경 유지) ── */
+  const prep = async (file: File, k: ImgKey): Promise<{ blob: Blob; ext: string }> => {
+    if (file.type === 'image/gif') { if (file.size > 6_000_000) throw new Error('gif가 너무 커요 (6MB까지)'); return { blob: file, ext: 'gif' }; }
+    const u = URL.createObjectURL(file);
+    try {
+      const img = new Image(); img.src = u; await img.decode();
+      const sc = Math.min(1, MAX[k] / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * sc); c.height = Math.round(img.naturalHeight * sc);
+      const keepAlpha = /png|webp/.test(file.type);
+      const x = c.getContext('2d')!; if (!keepAlpha) { x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); }
+      x.drawImage(img, 0, 0, c.width, c.height);
+      const blob = await new Promise<Blob | null>((r) => c.toBlob(r, keepAlpha ? 'image/png' : 'image/jpeg', 0.9));
+      if (!blob) throw new Error();
+      return { blob, ext: keepAlpha ? 'png' : 'jpg' };
+    } catch { throw new Error(`'${file.name}'은(는) 열 수 없는 이미지 형식이에요`); }
+    finally { URL.revokeObjectURL(u); }
+  };
+  IMGS.forEach((k) => {
+    const inp = q<HTMLInputElement>(`[data-file="${k}"]`);
+    q(`[data-pick="${k}"]`).addEventListener('click', () => inp.click());
+    inp.addEventListener('change', async () => {
+      const f = inp.files?.[0]; inp.value = ''; if (!f) return;
+      if (!f.type.startsWith('image/')) { q('[data-pf-err]').textContent = '이미지 파일만 고를 수 있어요'; return; }
+      try { const r = await prep(f, k); staged.set(k, { ...r, url: URL.createObjectURL(r.blob) }); q('[data-pf-err]').textContent = ''; drawImgs(); mark(); }
+      catch (e) { q('[data-pf-err]').textContent = (e as Error).message; }
+    });
+    q(`[data-clear="${k}"]`).addEventListener('click', () => { staged.delete(k); draft[k] = ''; drawImgs(); mark(); });
+  });
+  q('[data-pf-reset]').addEventListener('click', () => { staged.clear(); draft = structuredClone(base); q('[data-pf-err]').textContent = ''; fill(); });
+
+  /* ── 저장: 이미지 + site.json 을 커밋 하나로 ── */
+  q('[data-pf-save]').addEventListener('click', async () => {
+    const err = q('[data-pf-err]');
+    const next: My = { ...draft, name: draft.name.trim(), title: draft.title.trim(), status: draft.status.trim(), items: draft.items.map((i) => ({ label: i.label.trim(), value: i.value.trim() })).filter((i) => i.label || i.value) };
+    if (!next.name) { err.textContent = '이름을 적어 주세요'; field('name').focus(); return; }
+    if (!next.title) next.title = `${next.name}의 작은 방`;
+    if (!staged.size && JSON.stringify(next) === JSON.stringify(base)) { err.textContent = '바뀐 내용이 없어요'; return; }
+    if (!getToken()) { err.textContent = '🔑 GitHub 연결이 필요해요'; q('[data-pf-notoken]').hidden = false; return; }
+    const btn = q<HTMLButtonElement>('[data-pf-save]'); btn.disabled = true; btn.textContent = '저장 중…'; err.textContent = '';
+    try {
+      const stamp = Date.now().toString(36), changes: Change[] = [], fresh: Partial<Record<ImgKey, string>> = {};
+      for (const [k, st] of staged) {
+        const path = `/images/deco/${k}-${stamp}.${st.ext}`;
+        changes.push({ path: `public${path}`, base64: await blobToB64(st.blob) });
+        next[k] = path; fresh[k] = st.url;
+      }
+      // 예전에 사이트에서 올린 이미지가 바뀌거나 비워졌으면 그 파일은 지우기
+      IMGS.forEach((k) => { const old = base[k]; if (old && old !== next[k] && old.startsWith(`/images/deco/${k}-`)) changes.push({ path: `public${old}`, remove: true }); });
+      changes.push({ path: 'src/data/site.json', text: JSON.stringify(next, null, 2) + '\n' });
+      await commitFiles(repo, changes, '설정: 프로필·꾸미기 바꾸기');
+      save('pending.site', { data: next, ts: Date.now() });
+      Object.assign(local, fresh);
+      (window as unknown as { __applyMy?: (l: object) => void }).__applyMy?.(local);
+      base = next; draft = structuredClone(next); staged.clear();
+      fill();
+      err.textContent = '💾 저장했어요! 이 브라우저에는 바로 보이고, 사이트 전체에는 1~2분 뒤 반영돼요';
+    } catch (e) { err.textContent = (e as Error).message === 'NO_TOKEN' ? '🔑 GitHub 연결이 필요해요' : (e as Error).message; }
+    finally { btn.disabled = false; btn.textContent = '💾 저장하기'; }
+  });
+  window.addEventListener('beforeunload', (e) => { if (dirty()) e.preventDefault(); });
+  fill();
+</script>
 <style>
+  .pf { display: flex; flex-direction: column; gap: 12px; }
+  .pf-note { margin: 0; padding: 8px 10px; border: 1.5px dashed var(--pink); border-radius: 8px; background: var(--pink-soft); font-size: 12.5px; }
+  .pf-note[hidden] { display: none; }
+  .pf-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 12px; }
+  .pf label { display: flex; flex-direction: column; gap: 3px; font: 11px var(--pixel); color: var(--pink-deep); }
+  .pf label small, .pf-cap small { font: 10.5px var(--font); color: var(--mute); }
+  .pf input[type='text'] { font: 14px var(--font); color: var(--ink); border: 2px solid #d4d4d4; border-radius: 6px; padding: 6px 8px; background: #fff; min-width: 0; }
+  .pf input[type='text']:focus { outline: none; border-color: var(--pink-deep); }
+  .pf-cap { margin: 0 0 4px; font: 11px var(--pixel); color: var(--pink-deep); }
+  .pf-items { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  .pf-items > div { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+  .pf :global(.irow) { display: grid; grid-template-columns: 120px 1fr 28px; gap: 6px; max-width: 520px; }
+  .pf :global(.idel) { border: 1.5px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; color: var(--mute); }
+  .pf :global(.idel:hover) { border-color: var(--pink-deep); color: var(--pink-deep); }
+  .pf-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+  .tile { display: flex; flex-direction: column; gap: 3px; border: 1.5px solid var(--line); border-radius: 10px; padding: 8px; background: #fff; }
+  .tile b { font: 400 12px var(--pixel); }
+  .tile small { font-size: 11px; color: var(--mute); }
+  .prev { height: 110px; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); display: grid; place-items: center; background: #f4f4f4; margin-bottom: 4px; }
+  .prev.empty { background: repeating-linear-gradient(45deg, #f2f2f2 0 8px, #fafafa 8px 16px); }
+  .prev :global(img) { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .prev.photo :global(img) { width: 110px; height: 110px; border-radius: 10px; }
+  .prev.navTitle :global(img), .prev.banner :global(img) { object-fit: contain; }
+  .prev :global(span) { font: 11px var(--pixel); color: var(--mute); }
+  .tb { display: flex; gap: 6px; margin-top: 4px; }
+  .tb button:disabled { opacity: .4; cursor: default; }
+  .pf-err { margin: 0; min-height: 1.2em; font-size: 12.5px; color: var(--pink-deep); }
+  .pf-foot { display: flex; justify-content: flex-end; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .changed { margin-right: auto; font: 11px var(--pixel); color: var(--pink-deep); }
+  .changed[hidden] { display: none; }
+  :global(.pbtn.sm) { font-size: 11px; padding: 2px 8px; box-shadow: 1px 1px 0 #bbb; border-width: 1.5px; }
+  @media (max-width: 860px) { .pf :global(.irow) { grid-template-columns: 90px 1fr 28px; } }
   .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; }
   .row > span { width: 120px; font: 12px var(--pixel); }
   .row .filter { margin: 0; }

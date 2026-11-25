@@ -3,14 +3,14 @@ import Base from '../../layouts/Base.astro';
 import PageHead from '../../components/PageHead.astro';
 import Box from '../../components/Box.astro';
 import {
-  getDiary, getScrapbook, getMemos, getTodos, getDiet, getHospital, getReviews, getPhotos, getMoney, getCommissions, getProjects, won, stars,
+  getDiary, getThoughts, getMemos, getTodos, getDiet, getHospital, getReviews, getPhotos, getMoney, getCommissions, getProjects, won, stars,
 } from '../../lib/utils';
 
-const [diary, scraps, memos, todos, diet, hosp, reviews, photos, money, comms, projects] = await Promise.all([
-  getDiary(), getScrapbook(), getMemos(), getTodos(), getDiet(), getHospital(), getReviews(), getPhotos(), getMoney(), getCommissions(), getProjects(),
+const [diary, thoughts, memos, todos, diet, hosp, reviews, photos, money, comms, projects] = await Promise.all([
+  getDiary(), getThoughts(), getMemos(), getTodos(), getDiet(), getHospital(), getReviews(), getPhotos(), getMoney(), getCommissions(), getProjects(),
 ]);
 const Y = (d?: Date) => d?.getUTCFullYear();
-const years = [...new Set([diary, scraps, memos, photos, money, hosp].flatMap((c) => c.map((e: any) => Y(e.data.date))).concat(reviews.map((r) => Y(r.data.date))).filter(Boolean) as number[])].sort((a, b) => b - a);
+const years = [...new Set([diary, memos, photos, money, hosp].flatMap((c) => c.map((e: any) => Y(e.data.date))).concat(reviews.map((r) => Y(r.data.date))).concat(thoughts.map((t) => Number(t.data.at.slice(0, 4)))).filter(Boolean) as number[])].sort((a, b) => b - a);
 const stat = (y: number) => {
   const inY = <T extends { data: any }>(arr: T[], k = 'date') => arr.filter((e) => Y(e.data[k]) === y);
   const d = inY(diary);
@@ -26,7 +26,7 @@ const stat = (y: number) => {
   const tdone = inY(todos, 'doneAt').filter((t) => t.data.done);
   return {
     diary: d.length, months, best: months[best] ? `${best + 1}월` : '-',
-    scraps: inY(scraps).length, memos: inY(memos).length, photos: inY(photos).length,
+    thoughts: thoughts.filter((t) => t.data.at.startsWith(String(y))).length, memos: inY(memos).length, photos: inY(photos).length,
     books: rv.filter((r) => r.data.kind === 'book').length, anime: rv.filter((r) => r.data.kind === 'anime').length,
     movies: rv.filter((r) => r.data.kind === 'movie' || r.data.kind === 'drama').length, top,
     inc, exp, cat, cdone: cdone.length, cfee: cdone.reduce((s, c) => s + (c.data.fee ?? 0), 0),
@@ -51,7 +51,7 @@ const stat = (y: number) => {
         <Box title="RECORD" sub="기록">
           <div class="tiles">
             <div class="hl"><small>쓴 일기</small><b>{s.diary}<i>편</i></b></div>
-            <div><small>스크랩</small><b>{s.scraps}<i>개</i></b></div>
+            <div><small>생각</small><b>{s.thoughts}<i>개</i></b></div>
             <div><small>메모</small><b>{s.memos}<i>개</i></b></div>
             <div><small>사진</small><b>{s.photos}<i>장</i></b></div>
           </div>

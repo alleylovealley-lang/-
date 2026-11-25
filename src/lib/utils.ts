@@ -28,7 +28,7 @@ export const getDiary = async () => (await getCollection('diary', visible)).sort
 export const getProjects = async () =>
   (await getCollection('projects', visible)).sort((a, b) => Number(b.data.featured) - Number(a.data.featured) || byDate(a, b));
 export const getPhotos = async () => (await getCollection('photos')).sort(byDate);
-export const getScrapbook = async () => (await getCollection('scrapbook')).sort(byDate);
+export const getThoughts = async () => (await getCollection('thoughts')).sort((a, b) => b.data.at.localeCompare(a.data.at) || (b.filePath ?? '').localeCompare(a.filePath ?? ''));
 export const getMemos = async () =>
   (await getCollection('memo')).sort((a, b) => Number(b.data.pinned) - Number(a.data.pinned) || byDate(a, b));
 export const getSchedule = async () =>
