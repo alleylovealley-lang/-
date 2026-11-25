@@ -5,6 +5,7 @@ import Deco from '../components/Deco.astro';
 import Calendar from '../components/Calendar.astro';
 import NavTree from '../components/NavTree.astro';
 import { SITE } from '../site.config';
+import my from '../data/site.json';
 import { url } from '../lib/utils';
 import { currentPath, findNav } from '../lib/nav';
 
@@ -46,7 +47,7 @@ const year = new Date().getFullYear();
     </script>
     <slot name="head" />
   </head>
-  <body>
+  <body data-mybuilt={JSON.stringify(my)} data-base={url('/')} data-raw={`https://raw.githubusercontent.com/${SITE.repo.owner}/${SITE.repo.name}/${SITE.repo.branch}/public/`}>
     <div class="topbar" role="presentation">
       <span class="tb-clock" aria-label="현재 시각">♡ <time data-clock>----.--.-- --:--:--</time></span>
       <span class="tb-marquee" aria-hidden="true"><span class="tb-track">{[...SITE.topbar, ...SITE.topbar].map((m) => <span>{m}</span>)}</span></span>
@@ -56,7 +57,7 @@ const year = new Date().getFullYear();
       <div class="inner">
         <header class="hd">
           <div class="banner">
-            <Deco item={I.banner} label="🖼 헤더 배너" hint="가로로 긴 이미지 · 1400×160" class="banner-img" />
+            <Deco item={I.banner} label="🖼 헤더 배너" hint="가로로 긴 이미지 · 1400×160" class="banner-img" my="banner" />
             {SITE.headerTitle && <a href={url('/')} class="banner-title">{SITE.headerTitle}</a>}
           </div>
         </header>
@@ -72,21 +73,19 @@ const year = new Date().getFullYear();
         <aside class="side left">
           <section class="p profile" aria-label="프로필">
             <div class="pf-row">
-              <Deco item={P.photo} label="📷" class="pf-photo" />
+              <Deco item={P.photo} label="📷" class="pf-photo" my="photo" />
               <div class="pf-text">
-                <div class="pf-name">{SITE.name}</div>
-                {P.status && <div class="pf-status">{P.status}</div>}
+                <div class="pf-name" data-my="name">{SITE.name}</div>
+                <div class="pf-status" data-my="status" hidden={!P.status}>{P.status}</div>
               </div>
             </div>
-            {P.items.length > 0 && (
-              <details class="pf-more">
-                <summary>내 정보</summary>
-                <dl class="pf-info">{P.items.map((it) => <><dt>{it.label}</dt><dd>{it.value}</dd></>)}</dl>
-              </details>
-            )}
+            <details class="pf-more" data-my-items-wrap hidden={P.items.length === 0}>
+              <summary>내 정보</summary>
+              <dl class="pf-info" data-my-items>{P.items.map((it) => <><dt>{it.label}</dt><dd>{it.value}</dd></>)}</dl>
+            </details>
           </section>
           <nav class="p nav" aria-label="메뉴">
-            <Deco item={I.navTitle} label="NAVIGATION" class="navtitle" />
+            <Deco item={I.navTitle} label="NAVIGATION" class="navtitle" my="navTitle" />
             <a class="home" href={url('/')} aria-current={path === '/' ? 'page' : undefined}><span aria-hidden="true">🏠</span> HOME · 홈</a>
             <hr class="home-sep" />
             <NavTree prefix="d" activeGroup={activeGroup} activeItem={activeItem} />
@@ -103,16 +102,52 @@ const year = new Date().getFullYear();
             <Calendar />
           </div>
           {(I.sideBanner.src || SITE.showPlaceholders) && (
-            <div class="p tight"><Deco item={I.sideBanner} label="세로 배너" hint="컨셉 이미지 · 210×560" class="sidebanner" /></div>
+            <div class="p tight"><Deco item={I.sideBanner} label="세로 배너" hint="컨셉 이미지 · 210×560" class="sidebanner" my="sideBanner" /></div>
           )}
         </aside>
 
         <footer class="p foot">
           <a href={url('/')}>home</a> | <a href={url('/about')}>about</a> | <a href={url('/tags')}>tags</a> | <a href={url('/archive/backup')}>backup</a> | <a href={url('/rss.xml')}>rss</a>
-          <div>{SITE.name} © {SITE.startYear < year ? `${SITE.startYear}–${year}` : year} – ∞</div>
+          <div><span data-my="name">{SITE.name}</span> © {SITE.startYear < year ? `${SITE.startYear}–${year}` : year} – ∞</div>
         </footer>
       </div>
     </div>
+    <script is:inline>
+      // 설정 › 프로필·꾸미기에서 저장한 내용 — 사이트에 반영되기 전(1~2분)에도 바로 보여 주기
+      (function () {
+        var K = ['name', 'title', 'status', 'items', 'photo', 'banner', 'sideBanner', 'navTitle'];
+        window.__applyMy = function (local) {
+          try {
+            var p = JSON.parse(localStorage.getItem('hong.pending.site') || 'null'), b = document.body.dataset;
+            var built = JSON.parse(b.mybuilt || '{}');
+            if (p && (Date.now() - p.ts > 30 * 60000 || K.every(function (k) { return JSON.stringify(p.data[k]) === JSON.stringify(built[k]); }))) { localStorage.removeItem('hong.pending.site'); p = null; }
+            if (!p && !local) return;
+            var d = p ? p.data : built, at = function (v, k) {
+              if (local && local[k]) return local[k];
+              if (/^https?:/.test(v)) return v;
+              return (v === built[k] ? b.base : b.raw) + v.replace(/^\//, '');
+            };
+            document.querySelectorAll('[data-my]').forEach(function (el) {
+              var k = el.getAttribute('data-my'); el.textContent = d[k] || ''; if (k === 'status') el.hidden = !d.status;
+            });
+            var wrap = document.querySelector('[data-my-items-wrap]'), dl = document.querySelector('[data-my-items]');
+            if (wrap && dl) {
+              wrap.hidden = !(d.items || []).length; dl.textContent = '';
+              (d.items || []).forEach(function (it) { var t = document.createElement('dt'), v = document.createElement('dd'); t.textContent = it.label; v.textContent = it.value; dl.append(t, v); });
+            }
+            document.querySelectorAll('[data-my-img]').forEach(function (el) {
+              var k = el.getAttribute('data-my-img'), v = d[k];
+              if (!el.__orig) el.__orig = { html: el.innerHTML, ph: el.classList.contains('ph') };
+              if (v === built[k] && !(local && local[k] && v)) { el.innerHTML = el.__orig.html; el.classList.toggle('ph', el.__orig.ph); return; }
+              el.textContent = '';
+              if (v) { el.classList.remove('ph'); var im = document.createElement('img'); im.src = at(v, k); im.alt = ''; el.append(im); }
+              else { el.classList.add('ph'); var s = document.createElement('span'), t = document.createElement('b'); t.textContent = el.getAttribute('data-my-label') || ''; s.append(t); el.append(s); }
+            });
+          } catch (e) {}
+        };
+        window.__applyMy();
+      })();
+    </script>
     <script is:inline>
       (function () {
         var el = document.querySelector('[data-clock]'), D = '일월화수목금토';

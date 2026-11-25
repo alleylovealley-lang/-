@@ -26,17 +26,11 @@ const diary = defineCollection({
   }),
 });
 
-/** SCRAPBOOK — 이미지, 링크, 문장 스크랩 (본문 = 메모나 문장) */
-const scrapbook = defineCollection({
-  loader: md('scrapbook'),
+/** THOUGHT — 그때그때 떠오르는 생각·문장·독백 (본문 = 생각 그대로) */
+const thoughts = defineCollection({
+  loader: md('thoughts'),
   schema: z.object({
-    kind: z.enum(['image', 'link', 'quote']),
-    title: z.string().optional(),
-    date,
-    image: z.string().optional(), // image 스크랩
-    url: z.string().optional(), // link 스크랩
-    source: z.string().optional(), // quote 출처
-    tags,
+    at: z.string(), // 쓴 때 'YYYY-MM-DDTHH:mm:ss'
   }),
 });
 
@@ -277,7 +271,7 @@ const backups = defineCollection({
 });
 
 export const collections = {
-  diary, scrapbook, memo,
+  diary, thoughts, memo,
   schedule, todo, diet, hospital, habit,
   reviews, playlist,
   money, subscriptions,

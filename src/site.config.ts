@@ -1,17 +1,17 @@
-// ✏️ 사이트 전체 설정 — 이 파일만 고치면 이름·소개·꾸미기 이미지가 모든 페이지에 반영됩니다.
+// ✏️ 사이트 전체 설정 — 이 파일만 고치면 메뉴·소개 문구 등이 모든 페이지에 반영됩니다.
 //
-// 🖼 이미지 넣는 법
-//   1) 이미지 파일을 public/images/deco/ 폴더에 넣고
-//   2) 아래에 '/images/deco/파일이름.png' 처럼 적으면 끝!
-//   비워두면('') 회색 줄무늬 자리표시가 보입니다. (gif 움짤도 OK)
+// 👤 이름, 상태 메시지, 내 정보, 프로필 사진, 배너 이미지는
+//    사이트의 설정 › 프로필·꾸미기에서 바꿀 수 있어요. (실제 값은 src/data/site.json)
+//    이미지가 비어 있으면('') 회색 줄무늬 자리표시가 보입니다. (gif 움짤도 OK)
+import my from './data/site.json';
 
 export type Deco = { src: string; alt?: string; href?: string };
 export type NavItem = { label: string; ko: string; href: string; desc?: string };
 export type NavGroup = { key: string; label: string; ko: string; children: NavItem[] };
 
 export const SITE = {
-  name: '홍길동',
-  title: '홍길동의 작은 방',
+  name: my.name,
+  title: my.title,
   /** 헤더 배너 위에 크게 올라가는 제목 (비우면 표시 안 함) */
   headerTitle: '',
   description: '만들고, 기록하고, 좋아하는 걸 모아두는 평생의 작은 방.',
@@ -21,11 +21,9 @@ export const SITE = {
 
   /** 좌측바 프로필 카드 — 사진 + 간단한 내 정보 (항목은 자유롭게 추가·삭제) */
   profile: {
-    photo: { src: '', alt: '프로필 사진' } as Deco, // 정사각형 추천 (gif 가능)
-    status: '', // 사진 아래 한 줄 상태 메시지 (예: '☁ 오늘도 기록 중')
-    items: [
-      // { label: '생일', value: '1월 1일' },  ← 이런 식으로 원하는 만큼 추가
-    ] as { label: string; value: string }[],
+    photo: { src: my.photo, alt: '프로필 사진' } as Deco, // 정사각형 추천 (gif 가능)
+    status: my.status, // 사진 아래 한 줄 상태 메시지 (예: '☁ 오늘도 기록 중')
+    items: my.items as { label: string; value: string }[], // 예: { label: '생일', value: '1월 1일' }
   },
 
   /** 메뉴 — 대주제 띠를 누르면 접기/펼치기, 소주제를 누르면 해당 페이지로 이동 */
@@ -34,7 +32,7 @@ export const SITE = {
       key: 'record', label: 'RECORD', ko: '기록',
       children: [
         { label: 'DIARY', ko: '일기', href: '/diary', desc: '날짜별 일기' },
-        { label: 'SCRAPBOOK', ko: '스크랩북', href: '/scrapbook', desc: '이미지, 링크, 문장 스크랩' },
+        { label: 'THOUGHT', ko: '생각', href: '/thought', desc: '그때그때 떠오르는 생각과 문장' },
         { label: 'MEMO', ko: '메모', href: '/memo', desc: '자유 메모 및 백업 관련 메모' },
       ],
     },
@@ -112,9 +110,9 @@ export const SITE = {
 
   /** 꾸미기 이미지 */
   images: {
-    banner: { src: '', alt: '헤더 배너' } as Deco, // 헤더 배너 (가로로 긴 이미지, 1400×160 정도)
-    sideBanner: { src: '', alt: '세로 배너' } as Deco, // 우측바 세로로 긴 배너 (210×560 정도, 컨셉 이미지)
-    navTitle: { src: '', alt: 'navigation' } as Deco, // 좌측 메뉴 위 제목 이미지 (190×46 정도)
+    banner: { src: my.banner, alt: '헤더 배너' } as Deco, // 헤더 배너 (가로로 긴 이미지, 1400×160 정도)
+    sideBanner: { src: my.sideBanner, alt: '세로 배너' } as Deco, // 우측바 세로로 긴 배너 (210×560 정도, 컨셉 이미지)
+    navTitle: { src: my.navTitle, alt: 'navigation' } as Deco, // 좌측 메뉴 위 제목 이미지 (190×46 정도)
   },
 
   /** 이미지가 비어 있을 때 자리표시를 보여줄지 (꾸미기 다 끝나면 false 추천) */
